@@ -12,6 +12,7 @@ import { useHorizon } from "../providers/HorizonProvider";
 import { PlaceArt } from "../PlaceArt";
 import { CategoryBadge } from "../CategoryIcon";
 import { AddToExcursionDialog, NavigateDialog, ReportDialog, SaveDialog, VisitDialog } from "./PlaceDialogs";
+import { PlaceReviews } from "./PlaceReviews";
 
 type DialogName = "visit" | "save" | "excursion" | "navigate" | "report" | null;
 
@@ -175,6 +176,8 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
             </ul>
           </section>
         ) : null}
+
+        <PlaceReviews placeId={place.id} />
 
         <section aria-labelledby={`sources-${place.id}`} className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-ink-2">
           <h2 id={`sources-${place.id}`} className="mb-1 flex items-center gap-2 font-sans text-sm font-bold text-ink">

@@ -70,6 +70,17 @@ export class ConnectedStore implements HorizonStore {
     };
   }
 
+  /** Mesure d'usage : envoyée seulement avec le consentement explicite (le serveur revérifie). */
+  track(name: "app_open" | "first_discovery" | "favorite_added" | "excursion_created" | "visit_declared" | "visit_checked" | "share_created", props: Record<string, string | number | boolean> = {}) {
+    if (!this.userId || !this.state.profile.analyticsConsent) return;
+    void this.fetchImpl("/api/events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ name, props }),
+    }).catch(() => undefined);
+  }
+
   private requireUser(): string {
     if (!this.userId) throw new StoreError("Connectez-vous pour enregistrer vos données.", "unauthorized");
     return this.userId;
@@ -111,7 +122,12 @@ export class ConnectedStore implements HorizonStore {
 
     const next: UserState = {
       schemaVersion: 1,
-      profile: { pseudonym: String(p.pseudonym), visibility: p.visibility as UserState["profile"]["visibility"], createdAt: String(p.created_at) },
+      profile: {
+        pseudonym: String(p.pseudonym),
+        visibility: p.visibility as UserState["profile"]["visibility"],
+        createdAt: String(p.created_at),
+        analyticsConsent: Boolean(p.analytics_consent),
+      },
       preferences: {
         onboarded: Boolean(prefs.onboarded),
         trip: trip.success ? trip.data : DEFAULT_PREFERENCES,
@@ -171,6 +187,7 @@ export class ConnectedStore implements HorizonStore {
     const update: Row = {};
     if (patch.pseudonym !== undefined) update.pseudonym = patch.pseudonym;
     if (patch.visibility !== undefined) update.visibility = patch.visibility;
+    if (patch.analyticsConsent !== undefined) update.analytics_consent = patch.analyticsConsent;
     const { error } = await this.supabase.from("profiles").update(update).eq("id", uid);
     if (error) {
       if (error.code === "23505") throw new StoreError("Ce pseudonyme est déjà utilisé.", "conflict");
@@ -240,6 +257,7 @@ export class ConnectedStore implements HorizonStore {
       ? await this.supabase.from("collection_items").delete().eq("collection_id", id).eq("place_id", placeId)
       : await this.supabase.from("collection_items").insert({ collection_id: id, place_id: placeId });
     if (error) this.fail(error, "Enregistrement impossible");
+    if (!has) this.track("favorite_added");
     this.state = {
       ...this.state,
       collections: this.state.collections.map((c) => (c.id === id ? { ...c, placeIds: has ? c.placeIds.filter((x) => x !== placeId) : [...c.placeIds, placeId] } : c)),
@@ -275,6 +293,7 @@ export class ConnectedStore implements HorizonStore {
       ? await this.supabase.from("excursions").update(updatable).eq("id", id).select().single()
       : await this.supabase.from("excursions").insert(row).select().single();
     if (error) this.fail(error, "Enregistrement de l'excursion impossible");
+    if (!exists) this.track("excursion_created", { origin: excursion.origin, steps: excursion.steps.length });
     const saved = mapExcursion(data as Row);
     this.state = { ...this.state, excursions: exists ? this.state.excursions.map((e) => (e.id === saved.id ? saved : e)) : [...this.state.excursions, saved] };
     return this.state;
@@ -308,6 +327,7 @@ export class ConnectedStore implements HorizonStore {
       throw new StoreError(payload.message ?? "Le serveur n'a pas pu enregistrer la visite.", res.status === 422 ? "validation" : "unavailable");
     }
     this.state = { ...this.state, progression: payload.snapshot };
+    if (!payload.outcome.duplicate) this.track(payload.outcome.visit.status === "proximity_checked" ? "visit_checked" : "visit_declared");
     return { state: this.state, outcome: payload.outcome };
   }
 
@@ -326,6 +346,7 @@ export class ConnectedStore implements HorizonStore {
 
   async markSeen(placeId: string) {
     if (!this.userId || this.state.seenPlaceIds.includes(placeId)) return this.state;
+    if (this.state.seenPlaceIds.length === 0) this.track("first_discovery");
     const seen = [...this.state.seenPlaceIds, placeId].slice(-500);
     const { error } = await this.supabase.from("profiles").update({ seen_place_ids: seen }).eq("id", this.userId);
     if (!error) this.state = { ...this.state, seenPlaceIds: seen };

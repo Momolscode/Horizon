@@ -95,6 +95,8 @@ export const UserStateSchema = z.object({
     pseudonym: z.string().min(2).max(32),
     visibility: z.enum(VISIBILITIES),
     createdAt: z.string(),
+    /** Consentement à la mesure d'usage (mode connecté uniquement ; désactivé par défaut). */
+    analyticsConsent: z.boolean().default(false),
   }),
   preferences: z.object({
     onboarded: z.boolean(),
@@ -126,7 +128,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export function initialUserState(now: Date = new Date(), pseudonym = "Voyageur"): UserState {
   return {
     schemaVersion: 1,
-    profile: { pseudonym, visibility: "private", createdAt: now.toISOString() },
+    profile: { pseudonym, visibility: "private", createdAt: now.toISOString(), analyticsConsent: false },
     preferences: { onboarded: false, trip: DEFAULT_PREFERENCES, availableMinutes: 300, homeDestinationId: null },
     settings: DEFAULT_SETTINGS,
     collections: [{ id: "favoris", name: "Favoris", placeIds: [], createdAt: now.toISOString() }],

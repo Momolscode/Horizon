@@ -40,6 +40,14 @@ async function bootConnected(supabase: SupabaseClient): Promise<BootResult> {
   const store = new ConnectedStore(supabase, catalog.catalog, user?.id ?? null);
   try {
     const state = await store.load();
+    try {
+      if (user && !sessionStorage.getItem("horizon:app_open")) {
+        sessionStorage.setItem("horizon:app_open", "1");
+        store.track("app_open");
+      }
+    } catch {
+      // Stockage de session indisponible : pas de mesure, sans conséquence.
+    }
     return { kind: "ready", ready: { catalog, store, state, user } };
   } catch (e) {
     return problem("Votre compte n'a pas pu être chargé", [e instanceof Error ? e.message : "Erreur inconnue."]);

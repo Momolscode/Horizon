@@ -12,6 +12,7 @@ import {
   type VisitRequest,
 } from "@/modules/progression/engine";
 import type { Parcel } from "@/modules/progression/parcels";
+import { loadActiveConfig } from "./config";
 
 type Row = Record<string, unknown>;
 
@@ -94,7 +95,8 @@ export async function recordVisit(
   if (locked.rowCount === 0) throw new ProgressionError("Profil introuvable.", 404);
 
   const snapshot = await loadSnapshot(client, userId);
-  const outcome = planVisit(request, snapshot, catalog, { now, newId: randomUUID, mode: "connected" });
+  const config = await loadActiveConfig(client);
+  const outcome = planVisit(request, snapshot, catalog, { now, newId: randomUUID, mode: "connected", config });
   if (outcome.duplicate) return { outcome, snapshot };
 
   const v = outcome.visit;

@@ -128,6 +128,25 @@ export function SettingsScreen() {
         </p>
       </Section>
 
+      {status.kind === "connected" ? (
+        <Section title="Mesure d'usage" id="s-analytics">
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 accent-[var(--coral)]"
+              checked={state.profile.analyticsConsent}
+              onChange={(e) => void actions.updateProfile({ analyticsConsent: e.target.checked })}
+            />
+            <span>
+              Aider à améliorer HORIZON
+              <span className="block text-xs text-ink-3">
+                Enregistre quelques événements (ouverture, favori ajouté, excursion créée, visite déclarée, partage), sans position ni texte libre. Désactivé par défaut, révocable à tout moment.
+              </span>
+            </span>
+          </label>
+        </Section>
+      ) : null}
+
       <Section title="Apparence" id="s-appearance">
         <Choice
           label="Thème"

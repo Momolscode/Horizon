@@ -16,7 +16,15 @@ export async function POST(request: Request) {
   const parsed = z.object({ excursionId: z.uuid(), includeDate: z.boolean() }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   try {
-    const token = await withTransaction((c) => createShare(c, user.id, parsed.data.excursionId, parsed.data.includeDate));
+    const token = await withTransaction(async (c) => {
+      const t = await createShare(c, user.id, parsed.data.excursionId, parsed.data.includeDate);
+      // Mesure d'usage, seulement avec consentement.
+      await c.query(
+        `insert into public.events (user_id, name, props, is_test) select id, 'share_created', '{}'::jsonb, is_test from public.profiles where id = $1 and analytics_consent`,
+        [user.id],
+      );
+      return t;
+    });
     return NextResponse.json({ token, path: `/partage/${token}` });
   } catch (error) {
     if (error instanceof ShareError) return NextResponse.json({ error: "share", message: error.message }, { status: error.status });

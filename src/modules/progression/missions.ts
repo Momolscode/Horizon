@@ -156,6 +156,7 @@ export function planMissionClaim(
   timeZone: string,
   newId: () => string,
   missions: MissionDefinition[] = MISSIONS,
+  missionXp: Record<string, number> = {},
 ): LedgerEntry {
   const mission = missions.find((m) => m.id === missionId);
   if (!mission) throw new MissionClaimError("Mission inconnue.", "unknown_mission");
@@ -165,7 +166,7 @@ export function planMissionClaim(
   return {
     id: newId(),
     kind: "xp",
-    amount: mission.xp,
+    amount: missionXp[mission.id] ?? mission.xp,
     reason: "mission",
     refId: `${mission.id}:${status.periodKey}`,
     uniqueKey: missionUniqueKey(mission.id, status.periodKey),

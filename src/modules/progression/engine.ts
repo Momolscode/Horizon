@@ -4,14 +4,15 @@ import { addDays, localPartsAt } from "@/modules/shared/time";
 import {
   BADGES,
   DAILY_VISIT_CAP,
+  DEFAULT_PROGRESSION_CONFIG,
   LEVELS,
   VISIT_DATE_WINDOW,
-  NEW_PARCEL_XP,
   PARCEL_RESOLUTION,
   PROXIMITY,
   VISIT_RULES,
   levelForXp,
   medalBadgeId,
+  type ProgressionConfig,
   type VisitStatus,
 } from "./config";
 import { parcelForLocation, strongerState, type Parcel, type ParcelState } from "./parcels";
@@ -113,7 +114,7 @@ export type VisitOutcome = {
   statusExplanation: string;
 };
 
-export type EngineDeps = { now: Date; newId: () => string; mode: "demo" | "connected" };
+export type EngineDeps = { now: Date; newId: () => string; mode: "demo" | "connected"; config?: ProgressionConfig };
 
 export class VisitRejectedError extends Error {
   constructor(
@@ -276,8 +277,10 @@ export function planVisit(request: VisitRequest, snapshot: ProgressionSnapshot, 
     ledger.push({ id: deps.newId(), kind, amount, reason, refId, uniqueKey, createdAt });
   };
 
-  if (rule.countsAsRealVisit) credit("xp", rule.firstVisitXp, "first_visit", place.id);
-  if (status === "proximity_checked") credit("xp", rule.proximityBonusXp, "proximity_bonus", place.id);
+  const cfg = deps.config ?? DEFAULT_PROGRESSION_CONFIG;
+  const firstVisitXp = status === "declared" ? cfg.xp.declaredFirstVisit : status === "proximity_checked" ? cfg.xp.checkedFirstVisit : 0;
+  if (rule.countsAsRealVisit) credit("xp", firstVisitXp, "first_visit", place.id);
+  if (status === "proximity_checked") credit("xp", cfg.xp.proximityBonus, "proximity_bonus", place.id);
 
   let parcelResult: VisitOutcome["parcel"] = null;
   if (rule.revealsParcel) {
@@ -294,7 +297,7 @@ export function planVisit(request: VisitRequest, snapshot: ProgressionSnapshot, 
         previousState: null,
       };
     }
-    if (rule.countsAsRealVisit) credit("xp", NEW_PARCEL_XP, "new_parcel", cell);
+    if (rule.countsAsRealVisit) credit("xp", cfg.xp.newParcel, "new_parcel", cell);
   }
 
   // Niveaux et récompenses de niveau (points uniquement via niveau, jamais via une visite seule).

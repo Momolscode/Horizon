@@ -9,6 +9,8 @@
  * - points récompense : dépensables plus tard (aucune offre active aujourd'hui).
  */
 
+import { z } from "zod";
+
 export const PROGRESSION_CONFIG_VERSION = 1;
 
 /**
@@ -68,6 +70,23 @@ export const VISIT_RULES: Record<VisitStatus, VisitRule> = {
   },
 };
 
+/**
+ * Barèmes modifiables par l'administration (nouvelle version, jamais rétroactive :
+ * les écritures déjà créditées restent inchangées). Les niveaux et leurs seuils
+ * restent définis dans le code (les modifier changerait le niveau des comptes existants).
+ */
+export const ProgressionConfigSchema = z.object({
+  version: z.number().int().positive(),
+  xp: z.object({
+    declaredFirstVisit: z.number().int().min(0).max(200),
+    checkedFirstVisit: z.number().int().min(0).max(200),
+    proximityBonus: z.number().int().min(0).max(200),
+    newParcel: z.number().int().min(0).max(100),
+  }),
+  missionXp: z.record(z.string().regex(/^[a-z0-9-]+$/), z.number().int().min(0).max(200)),
+});
+export type ProgressionConfig = z.infer<typeof ProgressionConfigSchema>;
+
 /** Plafond de visites enregistrées par compte sur 24 heures glissantes (anti-abus). */
 export const DAILY_VISIT_CAP = 20;
 /** Fenêtre de dates acceptée pour une visite : jusqu'à 365 jours en arrière, 1 jour en avant (fuseaux). */
@@ -75,6 +94,17 @@ export const VISIT_DATE_WINDOW = { pastDays: 365, futureDays: 1 } as const;
 
 /** XP accordée une seule fois par nouvelle parcelle révélée par une visite réelle. */
 export const NEW_PARCEL_XP = 5;
+
+export const DEFAULT_PROGRESSION_CONFIG: ProgressionConfig = {
+  version: PROGRESSION_CONFIG_VERSION,
+  xp: {
+    declaredFirstVisit: VISIT_RULES.declared.firstVisitXp,
+    checkedFirstVisit: VISIT_RULES.proximity_checked.firstVisitXp,
+    proximityBonus: VISIT_RULES.proximity_checked.proximityBonusXp,
+    newParcel: NEW_PARCEL_XP,
+  },
+  missionXp: {},
+};
 
 /** Contrôle de proximité : position ponctuelle consentie, jamais un suivi continu. */
 export const PROXIMITY = {

@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { frDemoCatalog } from "../../data/catalog/fr-demo";
 import { buildCatalogIndex } from "../../src/modules/catalog/catalog";
-import { PARCEL_RESOLUTION, PROGRESSION_CONFIG_VERSION, LEVELS, VISIT_RULES, NEW_PARCEL_XP, PROXIMITY } from "../../src/modules/progression/config";
+import { PARCEL_RESOLUTION, DEFAULT_PROGRESSION_CONFIG } from "../../src/modules/progression/config";
 import { parcelForLocation } from "../../src/modules/progression/parcels";
 import { MISSIONS } from "../../src/modules/progression/missions";
 
@@ -41,7 +41,7 @@ for (const p of catalog.places) {
   );
 }
 lines.push(
-  `insert into public.progression_settings (version, parcel_resolution, config) values (${PROGRESSION_CONFIG_VERSION}, ${PARCEL_RESOLUTION}, ${j({ levels: LEVELS, visitRules: VISIT_RULES, newParcelXp: NEW_PARCEL_XP, proximity: PROXIMITY })}) on conflict (version) do nothing;`,
+  `insert into public.progression_settings (version, parcel_resolution, config) values (${DEFAULT_PROGRESSION_CONFIG.version}, ${PARCEL_RESOLUTION}, ${j({ xp: DEFAULT_PROGRESSION_CONFIG.xp, missionXp: DEFAULT_PROGRESSION_CONFIG.missionXp })}) on conflict (version) do nothing;`,
 );
 for (const m of MISSIONS) {
   lines.push(

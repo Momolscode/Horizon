@@ -207,3 +207,16 @@ describe("récompenses de niveau rattrapées", () => {
     expect(visit.pointsGained).toBe(0);
   });
 });
+
+describe("barèmes configurables", () => {
+  it("applique la version de barème fournie, sans modifier les écritures passées", async () => {
+    const { DEFAULT_PROGRESSION_CONFIG } = await import("./config");
+    const custom = { ...DEFAULT_PROGRESSION_CONFIG, version: 2, xp: { ...DEFAULT_PROGRESSION_CONFIG.xp, declaredFirstVisit: 30, newParcel: 0 } };
+    const first = planVisit(request("lyon-fourviere"), EMPTY_SNAPSHOT, catalog, deps());
+    const after = applyOutcome(EMPTY_SNAPSHOT, first);
+    const second = planVisit(request("lyon-vieux-lyon"), after, catalog, { ...deps(), config: custom });
+    expect(first.xpGained).toBe(25);
+    expect(second.xpGained).toBe(30);
+    expect(after.ledger.reduce((s, e) => s + e.amount, 0)).toBe(25);
+  });
+});

@@ -5,6 +5,7 @@ import type { Catalog } from "@/modules/catalog/schema";
 import { planLedgerAddition } from "@/modules/progression/engine";
 import { MISSIONS, MISSION_TIMEZONE, planMissionClaim } from "@/modules/progression/missions";
 import { loadSnapshot, ProgressionError } from "./progression";
+import { loadActiveConfig } from "./config";
 
 /**
  * Réclamation d'une mission, DANS une transaction : la progression est recalculée
@@ -18,7 +19,8 @@ export async function claimMission(client: PoolClient, userId: string, missionId
   const snapshot = await loadSnapshot(client, userId);
   const excursions = await client.query(`select updated_at from public.excursions where user_id = $1`, [userId]);
   const inputs = { snapshot, catalog, excursionUpdates: excursions.rows.map((r) => new Date(r.updated_at).toISOString()) };
-  const entry = planMissionClaim(missionId, inputs, now, MISSION_TIMEZONE, randomUUID, MISSIONS);
+  const config = await loadActiveConfig(client);
+  const entry = planMissionClaim(missionId, inputs, now, MISSION_TIMEZONE, randomUUID, MISSIONS, config.missionXp);
   const addition = planLedgerAddition(snapshot, [entry], catalog, randomUUID, now.toISOString());
   for (const e of addition.ledger) {
     await client.query(
