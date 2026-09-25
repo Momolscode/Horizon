@@ -268,10 +268,14 @@ export class ConnectedStore implements HorizonStore {
       origin: excursion.origin,
       steps: excursion.steps,
     };
-    const { data, error } = await this.supabase.from("excursions").upsert(row).select().single();
+    const exists = this.state.excursions.some((e) => e.id === excursion.id);
+    // Colonnes explicites : l'identifiant n'est jamais modifiable, les dates sont fixées par la base.
+    const { id, ...updatable } = row;
+    const { data, error } = exists
+      ? await this.supabase.from("excursions").update(updatable).eq("id", id).select().single()
+      : await this.supabase.from("excursions").insert(row).select().single();
     if (error) this.fail(error, "Enregistrement de l'excursion impossible");
     const saved = mapExcursion(data as Row);
-    const exists = this.state.excursions.some((e) => e.id === saved.id);
     this.state = { ...this.state, excursions: exists ? this.state.excursions.map((e) => (e.id === saved.id ? saved : e)) : [...this.state.excursions, saved] };
     return this.state;
   }
@@ -326,6 +330,21 @@ export class ConnectedStore implements HorizonStore {
     const { error } = await this.supabase.from("profiles").update({ seen_place_ids: seen }).eq("id", this.userId);
     if (!error) this.state = { ...this.state, seenPlaceIds: seen };
     return this.state;
+  }
+
+  async claimMission(missionId: string) {
+    this.requireUser();
+    const res = await this.fetchImpl("/api/missions/claim", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ missionId }),
+    }).catch(() => null);
+    if (!res) throw new StoreError("Connexion impossible.", "network");
+    const payload = (await res.json().catch(() => ({}))) as { snapshot?: ProgressionSnapshot; xpGained?: number; message?: string };
+    if (!res.ok || !payload.snapshot) throw new StoreError(payload.message ?? "Mission indisponible.", res.status === 409 ? "conflict" : "validation");
+    this.state = { ...this.state, progression: payload.snapshot };
+    return { state: this.state, xpGained: payload.xpGained ?? 0 };
   }
 
   async reset() {

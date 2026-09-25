@@ -8,6 +8,7 @@ import { badgeLabel, computeStats, medalProgress, totals } from "@/modules/progr
 import { cellsInBbox, parcelsInBbox } from "@/modules/progression/parcels";
 import { useHorizon } from "../providers/HorizonProvider";
 import { HexMosaic } from "../progress/HexMosaic";
+import { MissionsPanel } from "../progress/MissionsPanel";
 import { renderPassportImage } from "../progress/passport-image";
 import { iconByName } from "../CategoryIcon";
 import { Dialog } from "../shell/Dialog";
@@ -152,6 +153,8 @@ export function ProfileScreen() {
           })}
         </ul>
       </section>
+
+      <MissionsPanel />
 
       {/* Badges */}
       <section aria-labelledby="badges-title" className="mt-8">

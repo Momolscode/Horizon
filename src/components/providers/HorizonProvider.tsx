@@ -36,6 +36,7 @@ export type HorizonContextValue = {
     declareVisit: (request: VisitRequest) => Promise<VisitOutcome | null>;
     reportError: (report: Omit<ErrorReport, "id" | "createdAt" | "status">) => Promise<boolean>;
     markSeen: (placeId: string) => Promise<void>;
+    claimMission: (missionId: string) => Promise<number | null>;
     reset: () => Promise<boolean>;
   };
 };
@@ -153,6 +154,12 @@ export function HorizonProvider({
         } catch {
           // Non bloquant : le suivi des fiches vues n'est qu'un confort.
         }
+      },
+      claimMission: async (missionId: string) => {
+        const result = await guard(() => store.claimMission(missionId));
+        if (!result) return null;
+        setState(result.state);
+        return result.xpGained;
       },
       declareVisit: async (request: VisitRequest) => {
         const result = await guard(() => store.declareVisit(request));

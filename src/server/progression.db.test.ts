@@ -16,7 +16,7 @@ const users: string[] = [];
 const FIRST = VISIT_RULES.declared.firstVisitXp + NEW_PARCEL_XP;
 
 function req(overrides: Partial<VisitRequest> = {}): VisitRequest {
-  return { placeId: "lyon-fourviere", requestedStatus: "declared", visitedOn: "2026-10-03", idempotencyKey: `cle-${Math.random().toString(36).slice(2, 12)}`, position: null, note: null, ...overrides };
+  return { placeId: "lyon-fourviere", requestedStatus: "declared", visitedOn: new Date().toISOString().slice(0, 10), idempotencyKey: `cle-${Math.random().toString(36).slice(2, 12)}`, position: null, note: null, ...overrides };
 }
 
 async function xpOf(userId: string) {

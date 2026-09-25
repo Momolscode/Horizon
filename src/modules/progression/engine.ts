@@ -1,8 +1,11 @@
 import type { Catalog, Place } from "@/modules/catalog/schema";
 import { straightLineMeters, isValidLatLng } from "@/modules/shared/geo";
+import { addDays, localPartsAt } from "@/modules/shared/time";
 import {
   BADGES,
+  DAILY_VISIT_CAP,
   LEVELS,
+  VISIT_DATE_WINDOW,
   NEW_PARCEL_XP,
   PARCEL_RESOLUTION,
   PROXIMITY,
@@ -115,7 +118,7 @@ export type EngineDeps = { now: Date; newId: () => string; mode: "demo" | "conne
 export class VisitRejectedError extends Error {
   constructor(
     message: string,
-    readonly code: "unknown_place" | "status_not_allowed" | "invalid_date",
+    readonly code: "unknown_place" | "status_not_allowed" | "invalid_date" | "daily_cap",
   ) {
     super(message);
   }
@@ -185,6 +188,14 @@ export function badgeLabel(id: string, catalog: Catalog): string {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Date calendaire réelle (refuse 2026-02-31). */
+export function isRealDate(value: string): boolean {
+  if (!DATE_RE.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m! - 1 && dt.getUTCDate() === d;
+}
+
 /**
  * Calcule le résultat d'une visite sans effet de bord. Idempotent : une clé déjà
  * vue renvoie la visite existante, sans aucune récompense.
@@ -209,7 +220,16 @@ export function planVisit(request: VisitRequest, snapshot: ProgressionSnapshot, 
 
   const place = catalog.places.find((p) => p.id === request.placeId);
   if (!place) throw new VisitRejectedError("Lieu inconnu.", "unknown_place");
-  if (!DATE_RE.test(request.visitedOn)) throw new VisitRejectedError("Date de visite invalide.", "invalid_date");
+  if (!isRealDate(request.visitedOn)) throw new VisitRejectedError("Date de visite invalide.", "invalid_date");
+  const timeZone = catalog.destinations.find((d) => d.id === place.destinationId)?.timezone ?? "Europe/Paris";
+  const today = localPartsAt(deps.now, timeZone).date;
+  if (request.visitedOn > addDays(today, VISIT_DATE_WINDOW.futureDays) || request.visitedOn < addDays(today, -VISIT_DATE_WINDOW.pastDays)) {
+    throw new VisitRejectedError("Date de visite hors de la période acceptée (au plus un an en arrière, pas dans le futur).", "invalid_date");
+  }
+  const dayAgo = deps.now.getTime() - 24 * 3600 * 1000;
+  if (snapshot.visits.filter((v) => Date.parse(v.createdAt) > dayAgo).length >= DAILY_VISIT_CAP) {
+    throw new VisitRejectedError(`Plafond atteint : ${DAILY_VISIT_CAP} visites enregistrées sur 24 heures.`, "daily_cap");
+  }
   if (deps.mode === "connected" && !VISIT_RULES[request.requestedStatus].allowedInConnectedMode) {
     throw new VisitRejectedError("Les visites simulées n'existent qu'en démonstration.", "status_not_allowed");
   }
@@ -281,11 +301,7 @@ export function planVisit(request: VisitRequest, snapshot: ProgressionSnapshot, 
   const xpBefore = totals(snapshot).xp;
   const xpGained = ledger.filter((e) => e.kind === "xp").reduce((sum, e) => sum + e.amount, 0);
   const levelAfter = levelForXp(xpBefore + xpGained).current.level;
-  for (const def of LEVELS) {
-    if (def.level > levelBefore && def.level <= levelAfter && def.reward?.kind === "points") {
-      credit("points", def.reward.amount, "level_reward", `level-${def.level}`);
-    }
-  }
+  ledger.push(...levelRewardCredits(xpBefore + xpGained, ledgerKeys, deps.newId, createdAt));
 
   const provisional = applyOutcomeParts(snapshot, visit, ledger, parcelResult?.parcel ?? null, []);
   const owned = new Set(snapshot.badges.map((b) => b.id));
@@ -305,6 +321,49 @@ export function planVisit(request: VisitRequest, snapshot: ProgressionSnapshot, 
     levelAfter,
     statusExplanation,
   };
+}
+
+/**
+ * Récompenses en points de tous les niveaux atteints et pas encore crédités.
+ * Idempotent (clés uniques) et rattrapant : un niveau franchi par une mission ou
+ * une correction est récompensé au prochain calcul.
+ */
+export function levelRewardCredits(totalXp: number, existingKeys: Set<string>, newId: () => string, createdAt: string): LedgerEntry[] {
+  const level = levelForXp(totalXp).current.level;
+  const entries: LedgerEntry[] = [];
+  for (const def of LEVELS) {
+    if (def.level > level || def.reward?.kind !== "points") continue;
+    const refId = `level-${def.level}`;
+    const uniqueKey = `level_reward:${refId}`;
+    if (existingKeys.has(uniqueKey)) continue;
+    existingKeys.add(uniqueKey);
+    entries.push({ id: newId(), kind: "points", amount: def.reward.amount, reason: "level_reward", refId, uniqueKey, createdAt });
+  }
+  return entries;
+}
+
+/**
+ * Ajout d'écritures hors visite (mission, correction) : ajoute les récompenses de
+ * niveau dues et les badges devenus éligibles.
+ */
+export function planLedgerAddition(
+  snapshot: ProgressionSnapshot,
+  entries: LedgerEntry[],
+  catalog: Catalog,
+  newId: () => string,
+  createdAt: string,
+): { ledger: LedgerEntry[]; badges: BadgeAward[] } {
+  const keys = new Set(snapshot.ledger.map((e) => e.uniqueKey));
+  const fresh = entries.filter((e) => !keys.has(e.uniqueKey));
+  for (const e of fresh) keys.add(e.uniqueKey);
+  const xpAfter = totals(snapshot).xp + fresh.filter((e) => e.kind === "xp").reduce((s, e) => s + e.amount, 0);
+  const ledger = [...fresh, ...levelRewardCredits(xpAfter, keys, newId, createdAt)];
+  const provisional = { ...snapshot, ledger: [...snapshot.ledger, ...ledger] };
+  const owned = new Set(snapshot.badges.map((b) => b.id));
+  const badges = eligibleBadges(provisional, catalog)
+    .filter((id) => !owned.has(id))
+    .map((id) => ({ id, awardedAt: createdAt }));
+  return { ledger, badges };
 }
 
 function applyOutcomeParts(

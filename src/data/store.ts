@@ -31,6 +31,8 @@ export interface HorizonStore {
   declareVisit(request: VisitRequest): Promise<{ state: UserState; outcome: VisitOutcome }>;
   reportError(report: Omit<ErrorReport, "id" | "createdAt" | "status">): Promise<UserState>;
   markSeen(placeId: string): Promise<UserState>;
+  /** Réclame la récompense d'une mission accomplie (vérifiée côté serveur en mode connecté). */
+  claimMission(missionId: string): Promise<{ state: UserState; xpGained: number }>;
   /** Démo uniquement : efface toute la progression locale. */
   reset(): Promise<UserState>;
 }

@@ -1,6 +1,7 @@
 import type { Catalog } from "@/modules/catalog/schema";
 import { ExcursionSchema, type Excursion } from "@/modules/excursions/types";
-import { applyOutcome, planVisit, type VisitRequest } from "@/modules/progression/engine";
+import { applyOutcome, planLedgerAddition, planVisit, type VisitRequest } from "@/modules/progression/engine";
+import { MISSION_TIMEZONE, planMissionClaim } from "@/modules/progression/missions";
 import { StoreError, type HorizonStore, type StoreStatus } from "./store";
 import { initialUserState, UserStateSchema, type ErrorReport, type Settings, type UserState } from "./user-state";
 
@@ -202,6 +203,29 @@ export class DemoStore implements HorizonStore {
     return this.run(() =>
       this.state.seenPlaceIds.includes(placeId) ? this.state : this.write({ ...this.state, seenPlaceIds: [...this.state.seenPlaceIds, placeId] }),
     );
+  }
+
+  claimMission(missionId: string) {
+    return this.run(() => {
+      const now = this.now();
+      const inputs = { snapshot: this.state.progression, catalog: this.deps.catalog, excursionUpdates: this.state.excursions.map((e) => e.updatedAt) };
+      let entry;
+      try {
+        entry = planMissionClaim(missionId, inputs, now, MISSION_TIMEZONE, this.newId);
+      } catch (error) {
+        throw new StoreError(error instanceof Error ? error.message : "Mission indisponible.", "validation");
+      }
+      const addition = planLedgerAddition(this.state.progression, [entry], this.deps.catalog, this.newId, now.toISOString());
+      const state = this.write({
+        ...this.state,
+        progression: {
+          ...this.state.progression,
+          ledger: [...this.state.progression.ledger, ...addition.ledger],
+          badges: [...this.state.progression.badges, ...addition.badges],
+        },
+      });
+      return { state, xpGained: entry.amount };
+    });
   }
 
   reset() {

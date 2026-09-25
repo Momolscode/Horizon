@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { rejectCrossSite } from "@/server/request-guard";
 import { z } from "zod";
 import { databaseConfigured, getPool } from "@/server/db";
 import { clientKey, rateLimit } from "@/server/rate-limit";
@@ -9,10 +10,12 @@ const WaitlistSchema = z.object({
   consent: z.literal(true),
   /** Champ piège invisible : rempli uniquement par des robots. */
   website: z.string().max(0).optional().default(""),
-  source: z.string().max(40).optional().default("landing"),
+  source: z.enum(["landing"]).optional().default("landing"),
 });
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossSite(request);
+  if (blocked) return blocked;
   const key = clientKey(request.headers);
   const limit = rateLimit(`waitlist:${key}`, 5, 10 * 60 * 1000);
   if (!limit.allowed) {

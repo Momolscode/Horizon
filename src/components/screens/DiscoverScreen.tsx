@@ -10,6 +10,7 @@ import { VISIT_RULES } from "@/modules/progression/config";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useHorizon } from "../providers/HorizonProvider";
 import { PlaceCard } from "../place/PlaceCard";
+import { MissionsPanel } from "../progress/MissionsPanel";
 
 export function DiscoverScreen() {
   const { catalog, state, status } = useHorizon();
@@ -56,6 +57,9 @@ export function DiscoverScreen() {
           </Link>
         ) : null}
         <p className="mt-3 text-xs text-ink-3">Recommandations expliquées, non classées par popularité. Aucun placement commercial dans cette démonstration.</p>
+        <div className="mt-6 max-w-xl">
+          <MissionsPanel compact />
+        </div>
       </div>
 
       {sections.map((section) => (

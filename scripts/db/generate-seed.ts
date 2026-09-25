@@ -9,6 +9,7 @@ import { frDemoCatalog } from "../../data/catalog/fr-demo";
 import { buildCatalogIndex } from "../../src/modules/catalog/catalog";
 import { PARCEL_RESOLUTION, PROGRESSION_CONFIG_VERSION, LEVELS, VISIT_RULES, NEW_PARCEL_XP, PROXIMITY } from "../../src/modules/progression/config";
 import { parcelForLocation } from "../../src/modules/progression/parcels";
+import { MISSIONS } from "../../src/modules/progression/missions";
 
 const { catalog } = buildCatalogIndex(frDemoCatalog);
 
@@ -42,6 +43,11 @@ for (const p of catalog.places) {
 lines.push(
   `insert into public.progression_settings (version, parcel_resolution, config) values (${PROGRESSION_CONFIG_VERSION}, ${PARCEL_RESOLUTION}, ${j({ levels: LEVELS, visitRules: VISIT_RULES, newParcelXp: NEW_PARCEL_XP, proximity: PROXIMITY })}) on conflict (version) do nothing;`,
 );
+for (const m of MISSIONS) {
+  lines.push(
+    `insert into public.missions (id, period, title, description, criteria, xp, active, safety_reviewed) values (${q(m.id)}, ${q(m.period)}, ${q(m.title)}, ${q(m.description)}, ${j(m.criteria)}, ${m.xp}, true, true) on conflict (id) do update set period = excluded.period, title = excluded.title, description = excluded.description, criteria = excluded.criteria, xp = excluded.xp;`,
+  );
+}
 lines.push("commit;", "");
 
 const out = path.join(process.cwd(), "supabase", "seed.sql");

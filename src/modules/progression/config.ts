@@ -68,6 +68,11 @@ export const VISIT_RULES: Record<VisitStatus, VisitRule> = {
   },
 };
 
+/** Plafond de visites enregistrées par compte sur 24 heures glissantes (anti-abus). */
+export const DAILY_VISIT_CAP = 20;
+/** Fenêtre de dates acceptée pour une visite : jusqu'à 365 jours en arrière, 1 jour en avant (fuseaux). */
+export const VISIT_DATE_WINDOW = { pastDays: 365, futureDays: 1 } as const;
+
 /** XP accordée une seule fois par nouvelle parcelle révélée par une visite réelle. */
 export const NEW_PARCEL_XP = 5;
 

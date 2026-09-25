@@ -4,6 +4,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
+      // Garde-fou « server-only » neutralisé dans les tests Node.
+      "server-only": path.resolve(import.meta.dirname, "src/test/empty-module.ts"),
       "@data": path.resolve(import.meta.dirname, "data"),
       "@": path.resolve(import.meta.dirname, "src"),
     },

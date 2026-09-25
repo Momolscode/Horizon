@@ -99,6 +99,19 @@ describe("visites et XP", () => {
   it("refuse un lieu inconnu ou une date invalide", () => {
     expect(() => planVisit(request("inexistant"), EMPTY_SNAPSHOT, catalog, deps())).toThrow(/Lieu inconnu/);
     expect(() => planVisit(request("lyon-fourviere", { visitedOn: "03/10/2026" }), EMPTY_SNAPSHOT, catalog, deps())).toThrow(/Date/);
+    expect(() => planVisit(request("lyon-fourviere", { visitedOn: "2026-02-31" }), EMPTY_SNAPSHOT, catalog, deps())).toThrow(/Date/);
+  });
+
+  it("borne la date de visite : pas dans le futur, au plus un an en arrière", () => {
+    expect(() => planVisit(request("lyon-fourviere", { visitedOn: "2026-10-06" }), EMPTY_SNAPSHOT, catalog, deps())).toThrow(/période acceptée/);
+    expect(() => planVisit(request("lyon-fourviere", { visitedOn: "2025-09-01" }), EMPTY_SNAPSHOT, catalog, deps())).toThrow(/période acceptée/);
+    expect(planVisit(request("lyon-fourviere", { visitedOn: "2026-10-04" }), EMPTY_SNAPSHOT, catalog, deps()).duplicate).toBe(false);
+  });
+
+  it("plafonne les visites enregistrées sur 24 heures", () => {
+    let snapshot: ProgressionSnapshot = EMPTY_SNAPSHOT;
+    for (let i = 0; i < 20; i += 1) snapshot = applyOutcome(snapshot, planVisit(request(catalog.places[i]!.id, { idempotencyKey: `cap-${i}` }), snapshot, catalog, deps()));
+    expect(() => planVisit(request(catalog.places[20]!.id, { idempotencyKey: "cap-20" }), snapshot, catalog, deps())).toThrow(/Plafond/);
   });
 
   it("une parcelle déclarée puis contrôlée est renforcée, sans nouvelle XP de parcelle", () => {
@@ -175,5 +188,22 @@ describe("parcelles H3", () => {
     const count = cellsInBbox(annecy.bbox);
     expect(count).toBeGreaterThan(300);
     expect(count).toBeLessThan(2000);
+  });
+});
+
+describe("récompenses de niveau rattrapées", () => {
+  it("un niveau franchi hors visite (mission, correction) est récompensé une seule fois", async () => {
+    const { planLedgerAddition } = await import("./engine");
+    const level4 = LEVELS.find((l) => l.level === 4)!;
+    const bonus = { id: "m1", kind: "xp" as const, amount: level4.minXp, reason: "mission" as const, refId: "x", uniqueKey: "mission:x:1", createdAt: NOW.toISOString() };
+    const first = planLedgerAddition(EMPTY_SNAPSHOT, [bonus], catalog, idGenerator("l"), NOW.toISOString());
+    expect(first.ledger.filter((e) => e.reason === "level_reward").map((e) => e.amount)).toEqual([50]);
+    expect(first.badges.map((b) => b.id)).toContain("eclaireur");
+    const after = { ...EMPTY_SNAPSHOT, ledger: first.ledger, badges: first.badges };
+    const again = planLedgerAddition(after, [bonus], catalog, idGenerator("l"), NOW.toISOString());
+    expect(again.ledger).toEqual([]);
+    // La visite suivante ne recrédite pas non plus la récompense.
+    const visit = planVisit(request("lyon-fourviere"), after, catalog, deps());
+    expect(visit.pointsGained).toBe(0);
   });
 });

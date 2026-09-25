@@ -15,6 +15,8 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
   buckets.set(key, hits);
   if (buckets.size > 10_000) {
     for (const [k, v] of buckets) if (v.every((t) => now - t >= windowMs)) buckets.delete(k);
+    // Mémoire bornée même sous attaque (clés uniques) : on repart de zéro.
+    if (buckets.size > 20_000) buckets.clear();
   }
   return { allowed: true, retryAfterS: 0 };
 }
