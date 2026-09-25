@@ -107,20 +107,23 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button type="button" className={`btn ${saved ? "btn-primary" : "btn-ghost"} px-3`} onClick={() => setDialog("save")} aria-haspopup="dialog">
-            {saved ? <BookmarkCheck size={18} aria-hidden="true" /> : <Bookmark size={18} aria-hidden="true" />}
-            {saved ? "Enregistré" : "Enregistrer"}
-          </button>
-          <button type="button" className="btn btn-ghost px-3" onClick={() => setDialog("excursion")} aria-haspopup="dialog">
-            <CalendarPlus size={18} aria-hidden="true" /> Excursion
-          </button>
-          <button type="button" className="btn btn-ghost px-3" onClick={() => setDialog("navigate")} aria-haspopup="dialog">
-            <Navigation size={18} aria-hidden="true" /> Y aller
-          </button>
-          <button type="button" className="btn btn-explore px-3" onClick={() => setDialog("visit")} aria-haspopup="dialog">
-            <Sparkles size={18} aria-hidden="true" /> J&apos;y suis allé
-          </button>
+        {/* Requête de conteneur : la fiche vit aussi dans le panneau latéral étroit de la carte. */}
+        <div className="@container">
+          <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4">
+            <button type="button" className={`btn ${saved ? "btn-primary" : "btn-ghost"} px-3`} onClick={() => setDialog("save")} aria-haspopup="dialog">
+              {saved ? <BookmarkCheck size={18} aria-hidden="true" /> : <Bookmark size={18} aria-hidden="true" />}
+              {saved ? "Enregistré" : "Enregistrer"}
+            </button>
+            <button type="button" className="btn btn-ghost px-3" onClick={() => setDialog("excursion")} aria-haspopup="dialog">
+              <CalendarPlus size={18} aria-hidden="true" /> Excursion
+            </button>
+            <button type="button" className="btn btn-ghost px-3" onClick={() => setDialog("navigate")} aria-haspopup="dialog">
+              <Navigation size={18} aria-hidden="true" /> Y aller
+            </button>
+            <button type="button" className="btn btn-explore px-3" onClick={() => setDialog("visit")} aria-haspopup="dialog">
+              <Sparkles size={18} aria-hidden="true" /> J&apos;y suis allé
+            </button>
+          </div>
         </div>
 
         <section aria-labelledby={`about-${place.id}`} className="space-y-3">

@@ -33,6 +33,8 @@ export type MapColors = {
   water: string;
   river: string;
   veil: string;
+  /** Contour des parcelles non explorées : doit rester lisible sur le fond (thème nuit compris). */
+  grid: string;
   explored: string;
   simulated: string;
   route: string;
@@ -54,6 +56,7 @@ export function readMapColors(): MapColors {
     water: cssVar("--map-water", "#b9d3dc"),
     river: cssVar("--map-river", "#9dc1ce"),
     veil: dark ? "#050a17" : "#d9cfbd",
+    grid: dark ? "#7088c0" : "#d9cfbd",
     explored: cssVar("--green", "#2e7d5b"),
     simulated: cssVar("--ink-3", "#646c7e"),
     route: cssVar("--coral", "#c8462f"),

@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[92px] lg:border-r lg:border-t-0 lg:pb-0"
       >
         <div className="hidden px-2 pb-2 pt-5 text-center lg:block">
-          <Link href="/" className="font-display text-sm font-bold tracking-[0.18em]">
+          <Link href="/" className="font-display text-xs font-bold tracking-[0.12em]">
             HORIZON
           </Link>
         </div>

@@ -41,7 +41,7 @@ export function DiscoverScreen() {
         <p className="mt-2 max-w-2xl text-ink-2">
           {destination ? destination.description : "Un village voisin, une balade gratuite, une sortie du dimanche : choisissez une destination ou laissez-vous guider."}
         </p>
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Destination">
+        <div className="mt-4 flex flex-wrap gap-2" role="radiogroup" aria-label="Destination">
           <button type="button" role="radio" aria-checked={destinationId === null} className="chip shrink-0" onClick={() => setDestinationId(null)}>
             Toutes
           </button>

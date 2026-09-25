@@ -105,7 +105,7 @@ export function ProfileScreen() {
               { label: "Parcelles", value: String(progression.parcels.filter((p) => p.state !== "simulated").length), note: "cellules H3 rés. 8 révélées" },
               { label: "Points récompense", value: String(points), note: "échange indisponible" },
             ].map((s) => (
-              <div key={s.label} className="rounded-2xl bg-white/10 p-3">
+              <div key={s.label} className="rounded-2xl bg-bg/10 p-3">
                 <dt className="text-xs font-bold opacity-80">{s.label}</dt>
                 <dd className="font-display text-3xl font-semibold">{s.value}</dd>
                 <dd className="text-[11px] opacity-70">{s.note}</dd>

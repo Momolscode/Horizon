@@ -227,12 +227,12 @@ export function MapScreen() {
             {listMode ? <MapIcon size={19} aria-hidden="true" /> : <List size={19} aria-hidden="true" />}
           </button>
         </div>
-        <div className="pointer-events-auto mx-auto mt-2 flex max-w-2xl gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:mx-0 lg:ml-[456px] xl:max-w-3xl" role="group" aria-label="Destinations">
+        <div className="pointer-events-auto mt-2 flex w-fit max-w-full gap-2 overflow-x-auto [scrollbar-width:none] lg:ml-[456px]" role="group" aria-label="Destinations">
           {catalog.catalog.destinations.map((d) => (
             <button
               key={d.id}
               type="button"
-              className="chip shrink-0 shadow-card"
+              className="chip shrink-0"
               aria-pressed={filters.destinationId === d.id}
               onClick={() => (filters.destinationId === d.id ? setFilters((f) => ({ ...f, destinationId: null })) : selectDestination(d.id))}
             >

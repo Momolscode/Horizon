@@ -232,7 +232,7 @@ export function HorizonMap({
         type: "line",
         source: "parcels-view",
         filter: ["==", ["get", "explored"], 0],
-        paint: { "line-color": colors.veil, "line-opacity": 0.35, "line-width": 0.6 },
+        paint: { "line-color": colors.grid, "line-opacity": 0.35, "line-width": 0.6 },
       });
       map.addLayer({
         id: "parcels-explored-glow",
@@ -308,7 +308,7 @@ export function HorizonMap({
     map.getCanvas().setAttribute("aria-label", `${label}. Flèches pour se déplacer, + et − pour zoomer.`);
     map.touchZoomRotate.disableRotation();
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
-    map.addControl(new AttributionControl({ compact: true, customAttribution: provider.kind === "local" ? provider.attribution : provider.attribution }), "bottom-left");
+    map.addControl(new AttributionControl({ compact: true, customAttribution: provider.kind === "local" ? provider.attribution : provider.attribution }), "bottom-right");
 
     map.on("error", (event) => {
       const message = String(event.error?.message ?? "");
@@ -330,6 +330,12 @@ export function HorizonMap({
       latest.current.onViewChange?.([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], map.getZoom());
     };
     map.on("moveend", onMoveEnd);
+    // Pendant un vol animé, masque les étiquettes de destination dès le seuil franchi
+    // (sans attendre la fin du mouvement) ; ne re-rend qu'au franchissement du seuil.
+    map.on("zoom", () => {
+      const z = map.getZoom();
+      setZoom((prev) => ((prev < DESTINATION_ZOOM_MAX) === (z < DESTINATION_ZOOM_MAX) ? prev : z));
+    });
     map.on("sourcedata", (e) => {
       if (e.sourceId === "places" && e.isSourceLoaded) refreshMarkers();
     });
@@ -361,7 +367,7 @@ export function HorizonMap({
       map.setPaintProperty("admin1", "line-color", colors.border);
     }
     map.setPaintProperty("parcels-veil", "fill-color", colors.veil);
-    map.setPaintProperty("parcels-grid", "line-color", colors.veil);
+    map.setPaintProperty("parcels-grid", "line-color", colors.grid);
     map.setPaintProperty("parcels-explored", "line-color", ["case", ["==", ["get", "simulated"], 1], colors.simulated, colors.explored]);
     map.setPaintProperty("route-line", "line-color", colors.route);
   }, [theme, mapThemeKey, ready, provider.kind]);
