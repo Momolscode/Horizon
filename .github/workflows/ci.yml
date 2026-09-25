@@ -46,3 +46,25 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
+
+  connected:
+    name: Base réelle et mode connecté (Supabase local)
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Démarrer Supabase (migrations + seed)
+        run: npx --yes supabase@2.117.0 start
+      - name: Tests d'intégration PostgreSQL/PostGIS (RLS, idempotence, concurrence)
+        run: npm run test:db
+      - name: Parcours connecté (comptes réels, isolation)
+        run: npm run test:e2e:connected
+      - name: Arrêter Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup

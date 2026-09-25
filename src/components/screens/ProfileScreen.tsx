@@ -240,7 +240,7 @@ export function ProfileScreen() {
           Collections
         </h2>
         <ul className="mt-3 space-y-3">
-          {state.collections.map((c) => (
+          {state.collections.map((c, index) => (
             <li key={c.id} className="card p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-display text-lg font-semibold">
@@ -250,7 +250,7 @@ export function ProfileScreen() {
                   <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-surface-2" aria-label={`Renommer ${c.name}`} onClick={() => setRenaming({ id: c.id, name: c.name })}>
                     <Pencil size={16} aria-hidden="true" />
                   </button>
-                  {c.id !== "favoris" ? (
+                  {index > 0 ? (
                     <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-surface-2" aria-label={`Supprimer ${c.name}`} onClick={() => void actions.deleteCollection(c.id)}>
                       <Trash2 size={16} aria-hidden="true" />
                     </button>

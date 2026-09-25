@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Compass, FlaskConical, Map, RotateCcw, Route, User, Users } from "lucide-react";
+import { Compass, FlaskConical, LogIn, Map, RotateCcw, Route, User, Users } from "lucide-react";
 import { useHorizon } from "../providers/HorizonProvider";
 import { Dialog } from "./Dialog";
 import { Toasts } from "./Toasts";
@@ -17,6 +17,19 @@ const NAV = [
   { href: "/communaute", label: "Communauté", icon: Users },
   { href: "/profil", label: "Profil", icon: User },
 ] as const;
+
+function ConnectedBanner() {
+  const { status, requiresAccount } = useHorizon();
+  if (status.kind !== "connected" || !requiresAccount) return null;
+  return (
+    <div className="relative z-40 flex items-center gap-2 bg-green-soft px-3 py-1.5 text-[12px] font-semibold text-green-ink sm:px-4">
+      <p className="min-w-0 flex-1 truncate">Vous consultez sans compte : rien n&apos;est enregistré.</p>
+      <Link href="/connexion" className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2 underline underline-offset-2">
+        <LogIn size={13} aria-hidden="true" /> Se connecter
+      </Link>
+    </div>
+  );
+}
 
 function DemoBanner() {
   const { status, actions, toast } = useHorizon();
@@ -72,6 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         Aller au contenu
       </a>
       <DemoBanner />
+      <ConnectedBanner />
       <main id="contenu" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(68px+env(safe-area-inset-bottom))] outline-none lg:pb-0">
         {children}
       </main>

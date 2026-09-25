@@ -1,6 +1,6 @@
 # État du projet
 
-_Mis à jour le 2026-09-25, fin du jalon 1 (P0 démo)._
+_Mis à jour le 2026-09-25, jalon 2 (mode connecté, cœur)._
 
 ## Réalisé et vérifié
 
@@ -10,25 +10,28 @@ _Mis à jour le 2026-09-25, fin du jalon 1 (P0 démo)._
 | Lint | RÉUSSIE | `npm run lint` (0 erreur, 0 avertissement) | idem |
 | Tests unitaires (80) | RÉUSSIE | `npm test` | idem, fuseau machine forcé sur America/New_York |
 | Build de production démo | RÉUSSIE | `npm run build:demo` | Next 16.3.6 / Turbopack |
-| Parcours de recette démo (mobile 390×844 et ordinateur 1440×900) | RÉUSSIE | `npm run test:e2e`, 8 tests | Chromium 1194 headless (SwiftShader, WebGL 2) |
+| Parcours de recette démo (mobile + ordinateur, 8 tests) | RÉUSSIE | `npm run build:demo && npm run test:e2e` | Chromium 1194 headless (SwiftShader, WebGL 2) |
+| Migrations sur base vide | RÉUSSIE | `npx supabase db reset` (2 migrations + seed de 40 lieux) | Supabase CLI 2.117.0, PostgreSQL 17, PostGIS 3.3.7 (images Docker Hub) |
+| RLS et intégrité en base (15 tests) | RÉUSSIE | `npm run test:db` → `rls.db.test.ts` | idem, rôles Supabase réels (`anon`, `authenticated`) |
+| Attribution serveur idempotente et concurrente (11 tests) | RÉUSSIE | `npm run test:db` → `progression.db.test.ts` (10 requêtes simultanées) | idem |
+| Parcours connecté : sans compte, inscription, favori, excursion, visite, rechargement, isolation entre comptes, refus des visites simulées (4 tests) | RÉUSSIE | `npm run test:e2e:connected` | Supabase local (GoTrue, PostgREST, PostgreSQL) + `next dev` |
+| Liste d'attente réellement stockée, anti-énumération, champ piège | RÉUSSIE | `connected-waitlist.spec.ts` | idem |
 
-## Parcours de recette démo couvert par Playwright
+## Non exécuté ou non livré
 
-Consultation sans compte ni GPS → recherche d'une ville → filtre « Gratuit » (coûts inconnus exclus) → liste → ouverture d'un lieu → ajout aux favoris → « Surprends-nous » (3 à 5 étapes) → réordonnancement et remplacement d'étape → enregistrement → rechargement et données retrouvées → visite déclarée par double clic (un seul crédit) → révélation de la parcelle → passeport mis à jour (XP, parcelle 1/154, badge, carnet) → rechargement → réinitialisation.
-
-## Non exécuté ou non livré à ce stade
-
-- Mode connecté (Supabase, RLS, API serveur des visites) : **NON LIVRÉ** au jalon 1. Il affiche une erreur explicite, sans bascule en démo.
-- Liste d'attente : l'API répond « stockage indisponible » tant que `DATABASE_URL` est absente. Le stockage réel n'est pas encore testé.
-- CI GitHub Actions : fichier fourni, **NON EXÉCUTÉE** sur GitHub à ce stade.
-- Liens de navigation externes (Google Maps, Waze, Plans, OSM) et adaptateur Open-Meteo : **NON VÉRIFIÉS** (pas d'accès réseau à ces services depuis l'environnement).
+- **Projet Supabase hébergé (cloud) :** NON VÉRIFIÉ. Tous les tests connectés utilisent la pile locale officielle, lancée via la CLI.
+- **Confirmation d'e-mail et envoi de mails d'authentification :** NON VÉRIFIÉS. Confirmation désactivée en local, aucun SMTP configuré.
+- **Suppression de compte (`DELETE /api/account`) :** implémentée, NON COUVERTE par un test e2e.
+- **CI GitHub Actions** (qualité, e2e démo, base + connecté) : fichier fourni, NON EXÉCUTÉE sur GitHub.
+- **Liens de navigation externes et adaptateur Open-Meteo :** NON VÉRIFIÉS (aucun accès réseau à ces services).
+- **Fonctions P1** (administration, partage, amis, avis, missions, mesure) : schéma en place (migration 2, appliquée et testée sur base vide), interfaces et routes À FAIRE.
 
 ## Prochaine tâche
 
-Mode connecté :
+P1 :
 
-- migrations PostgreSQL/PostGIS et RLS ;
-- route serveur de visite transactionnelle et idempotente ;
-- magasin Supabase ;
-- tests d'intégration sur base réelle, isolation entre comptes et concurrence ;
-- tentative de pile Supabase locale via Docker Hub.
+- administration protégée (lieux, signalements, avis, corrections XP, journal) ;
+- partage d'excursion révocable ;
+- missions ;
+- amis et avis modérés ;
+- tableau de mesure avec « Données insuffisantes ».

@@ -7,6 +7,7 @@ import { levelForXp } from "@/modules/progression/config";
 import { totals } from "@/modules/progression/engine";
 import { VISIBILITIES, type Settings, type Visibility } from "@/data/user-state";
 import { useHorizon } from "../providers/HorizonProvider";
+import { useAuth } from "../connected/AuthContext";
 import { Dialog } from "../shell/Dialog";
 
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id: string }) {
@@ -47,6 +48,7 @@ export function SettingsScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [geoPermission, setGeoPermission] = useState<string>("inconnue");
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
+  const auth = useAuth();
 
   useEffect(() => {
     navigator.permissions
@@ -78,6 +80,23 @@ export function SettingsScreen() {
         <strong className="text-ink">Où sont vos données ?</strong> {status.storageLabel}.
         {status.kind === "demo" ? " Rien n'est synchronisé ni envoyé à un serveur en démonstration." : " Synchronisées avec votre compte."}
       </p>
+
+      {auth ? (
+        <Section title="Compte" id="s-account">
+          {auth.user ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-ink-2">Connecté : {auth.user.email}</p>
+              <button type="button" className="btn btn-ghost" onClick={() => void auth.signOut()}>
+                Se déconnecter
+              </button>
+            </div>
+          ) : (
+            <Link href="/connexion" className="btn btn-primary">
+              Se connecter ou créer un compte
+            </Link>
+          )}
+        </Section>
+      ) : null}
 
       <Section title="Profil" id="s-profile">
         <form

@@ -32,7 +32,10 @@
     "db:test:start": "bash scripts/db/local-postgres.sh start",
     "db:test:stop": "bash scripts/db/local-postgres.sh stop",
     "db:seed:sql": "tsx scripts/db/generate-seed.ts",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run build:demo"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build:demo",
+    "test:e2e:connected": "bash scripts/e2e-connected.sh",
+    "supabase:start": "npx --yes supabase@2.117.0 start",
+    "supabase:reset": "npx --yes supabase@2.117.0 db reset"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "5.3.0",
