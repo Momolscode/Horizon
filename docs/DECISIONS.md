@@ -121,12 +121,32 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - visite confirmée créditée une seule fois ;
   - demande expirée ou refusée sans crédit.
 
-## D-017 — Référencement et avis élargis : orientations (en cours de conception)
+## D-017 — Référencement et avis élargis : conception validée (non implémentée)
 
-- **Portée :** restaurants, entreprises, activités extérieures de tout genre.
-- **Qui ajoute les fiches :**
-  - les utilisateurs proposent ; la fiche est publiée après modération, marquée « non vérifiée » ;
-  - le professionnel peut ensuite revendiquer sa fiche pour corriger ses informations ;
-  - il ne peut ni modifier ni supprimer les avis.
-- **Référencement payant :** souhaité par le porteur à terme. **Non implémenté.** Aucune intégration de paiement réel sans décision explicite et validation juridique : transparence des classements et avis, mention « sponsorisé », conditions commerciales. Principe retenu dès maintenant : un paiement n'agit jamais sur les notes, les avis ou les recommandations expliquées, et toute mise en avant payée est signalée comme telle. Le champ `sponsored` du catalogue existe déjà.
-- **Suite :** vérification des professionnels, contenu de l'offre payante et règles d'avis restent à décider (séance de conception en cours).
+Validée par le porteur le 2026-09-25, lors d'une séance de conception.
+
+- **Portée :** restaurants, commerces et entreprises, activités extérieures de tout genre, **uniquement dans les destinations couvertes**. L'administration ajoute de nouvelles destinations.
+- **Proposition (tout compte connecté) :**
+  - nom, catégorie, position, site ; horaires et tarifs s'ils sont connus (`Known<T>`) ;
+  - détection d'un doublon probable (nom proche, moins de 100 m) ;
+  - modération dans l'administration, puis publication marquée « non vérifiée ».
+- **Revendication (professionnel) :**
+  - SIRET, contrôlé par l'administrateur dans la base Sirene (données ouvertes, mode d'accès à confirmer), et preuve (e-mail sur le domaine ou justificatif) ;
+  - validation manuelle par un administrateur ;
+  - le professionnel corrige les informations pratiques, affichées « fournies par l'établissement » et datées ;
+  - il répond gratuitement et publiquement aux avis ;
+  - il ne peut jamais modifier, supprimer ou noter les avis de son établissement.
+- **Avis :** réservés aux comptes ayant déclaré une visite du lieu (mention « après visite déclarée ») ; modération inchangée, décision liée à la version relue.
+- **Offre payante (souhaitée à terme, NON implémentée) :**
+  - fiche enrichie uniquement : photos, menu ou tarifs, lien de réservation, statistiques de consultation ;
+  - jamais d'effet sur l'ordre, les notes, les avis ni « Surprends-nous » ;
+  - signalée comme telle ;
+  - aucun paiement réel sans décision explicite du porteur et validation juridique (transparence des classements et des avis, conditions commerciales) ;
+  - aucun tarif fixé.
+- **Écartés :** mise en avant « sponsorisée », présence payée dans « Surprends-nous », réponses aux avis payantes, vérification par SMS ou courrier (coût), fiches hors destinations.
+- **Tests requis :**
+  - modération des propositions et détection des doublons ;
+  - revendication inactive sans validation de l'administrateur ;
+  - un professionnel ne peut ni toucher aux avis ni noter sa fiche ;
+  - un avis est refusé sans visite déclarée ;
+  - le classement ignore tout statut payant.

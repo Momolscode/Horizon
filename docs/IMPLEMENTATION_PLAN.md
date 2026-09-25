@@ -29,7 +29,7 @@ Chaque tâche a un résultat observable et un critère de validation. État tenu
 | # | Fonction | Conception | État |
 |---|---|---|---|
 | 13 | Mode Duo : co-édition entre amis, visite pour deux confirmée par l'autre | DECISIONS D-016 (validée) | à faire |
-| 14 | Référencement et avis élargis (restaurants, entreprises, activités), revendication par les professionnels | DECISIONS D-017 (en cours) | à concevoir |
+| 14 | Référencement et avis élargis (restaurants, entreprises, activités), revendication par les professionnels ; offre payante préparée mais non branchée | DECISIONS D-017 (validée) | à faire |
 
 ## P2 — préparé, non livré
 
