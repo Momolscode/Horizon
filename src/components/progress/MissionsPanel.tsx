@@ -25,7 +25,7 @@ export function MissionsPanel({ compact = false }: { compact?: boolean }) {
         <Target size={22} aria-hidden="true" /> Missions
       </h2>
       {!compact ? (
-        <p className="text-sm text-ink-3">Faisables près de chez vous et gratuitement. Aucune mission n&apos;incite à entrer dans un lieu fermé ou à prendre des risques.</p>
+        <p className="text-sm text-ink-3">Pensées pour être accessibles sans dépense obligatoire, dans les destinations du catalogue. Aucune mission n&apos;incite à entrer dans un lieu fermé ou à prendre des risques.</p>
       ) : null}
       <ul className={`mt-3 grid gap-3 ${compact ? "" : "sm:grid-cols-2"}`}>
         {list.map((s) => (

@@ -45,6 +45,12 @@ export function SettingsScreen() {
   const s = state.settings;
   const level = levelForXp(totals(state.progression).xp).current.level;
   const [pseudonym, setPseudonym] = useState(state.profile.pseudonym);
+  const [syncedPseudonym, setSyncedPseudonym] = useState(state.profile.pseudonym);
+  if (state.profile.pseudonym !== syncedPseudonym) {
+    // Le profil a changé ailleurs (réinitialisation, autre onglet) : le champ suit.
+    setSyncedPseudonym(state.profile.pseudonym);
+    setPseudonym(state.profile.pseudonym);
+  }
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [geoPermission, setGeoPermission] = useState<string>("inconnue");
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
@@ -201,7 +207,7 @@ export function SettingsScreen() {
           </select>
         </label>
         <p id="lang-help" className="text-xs text-ink-3">
-          Seul le français est disponible. La structure est prête pour d&apos;autres langues (voir docs/HANDOVER.md).
+          Seul le français est disponible pour l&apos;instant.
         </p>
       </Section>
 
@@ -243,7 +249,7 @@ export function SettingsScreen() {
           </button>
         </div>
         <p className="flex items-start gap-2 text-xs text-ink-3">
-          <ShieldCheck size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Politique de conservation et de suppression : voir docs/HANDOVER.md § Données personnelles (document de travail à faire valider juridiquement).
+          <ShieldCheck size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Politique de conservation et de suppression : non encore publiée (en cours de rédaction, à faire valider juridiquement). Vous pouvez exporter ou supprimer vos données ci-dessus à tout moment.
         </p>
       </Section>
 

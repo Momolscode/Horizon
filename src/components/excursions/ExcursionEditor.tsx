@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, CloudOff, List, Map as MapIcon, Plus, RefreshCw, Replace, Save, Trash2, TriangleAlert } from "lucide-react";
 import type { Excursion, SurpriseRequest } from "@/modules/excursions/types";
-import { PARTY_LABELS, TRANSPORT_LABELS } from "@/modules/excursions/types";
+import { PARTY_LABELS, TRANSPORTS, TRANSPORT_LABELS, type Transport } from "@/modules/excursions/types";
 import { scheduleExcursion, stepIssues, DEFAULT_VISIT_MINUTES } from "@/modules/excursions/schedule";
 import { alternativesFor, moveStep, replaceStep } from "@/modules/excursions/surprise";
 import { formatDuration, formatLocalDate, formatMinutes } from "@/modules/shared/time";
@@ -27,6 +27,8 @@ const HorizonMap = dynamic(() => import("../map/HorizonMap").then((m) => m.Horiz
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
+
+const DURATION_CHOICES = [90, 120, 180, 240, 300, 360, 480, 600, 720];
 
 function asRequest(e: Excursion): SurpriseRequest {
   return { ...e, seed: e.seed ?? 0 };
@@ -133,12 +135,66 @@ export function ExcursionEditor({
           className="w-full rounded-xl bg-transparent font-display text-3xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-coral"
           value={excursion.title}
           maxLength={120}
-          onChange={(e) => onChange({ ...excursion, title: e.target.value || "Excursion" })}
+          placeholder="Excursion"
+          onChange={(e) => onChange({ ...excursion, title: e.target.value })}
         />
         <p className="text-sm font-semibold text-ink-2">
           {destination.name} · {formatLocalDate(excursion.date)} · départ {excursion.startTime} · {formatDuration(excursion.durationMinutes)} · {PARTY_LABELS[excursion.party.kind]}
           {excursion.party.size > 2 ? ` (${excursion.party.size})` : ""} · {TRANSPORT_LABELS[excursion.transport]}
         </p>
+        <details className="rounded-2xl border border-line bg-surface px-4 py-2 text-sm">
+          <summary className="min-h-10 cursor-pointer py-2 font-bold">Date, horaires et déplacement</summary>
+          <div className="grid gap-3 pb-2 pt-1 sm:grid-cols-2">
+            {excursion.steps.length === 0 ? (
+              <label className="font-bold">
+                Destination
+                <select className="field mt-1" value={excursion.destinationId} onChange={(e) => {
+                    const next = catalog.destinationsById.get(e.target.value)!;
+                    // Le titre automatique (« Annecy, … ») suit la destination choisie.
+                    const title = excursion.title.startsWith(destination.name) ? next.name + excursion.title.slice(destination.name.length) : excursion.title;
+                    onChange({ ...excursion, destinationId: next.id, title });
+                  }}
+                >
+                  {catalog.catalog.destinations.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label className="font-bold">
+              Date
+              <input type="date" className="field mt-1" value={excursion.date} required onChange={(e) => e.target.value && onChange({ ...excursion, date: e.target.value })} />
+            </label>
+            <label className="font-bold">
+              Heure de départ
+              <input type="time" className="field mt-1" value={excursion.startTime} required onChange={(e) => e.target.value && onChange({ ...excursion, startTime: e.target.value })} />
+            </label>
+            <label className="font-bold">
+              Durée
+              <select className="field mt-1" value={excursion.durationMinutes} onChange={(e) => onChange({ ...excursion, durationMinutes: Number(e.target.value) })}>
+                {DURATION_CHOICES.includes(excursion.durationMinutes) ? null : <option value={excursion.durationMinutes}>{formatDuration(excursion.durationMinutes)}</option>}
+                {DURATION_CHOICES.map((m) => (
+                  <option key={m} value={m}>
+                    {formatDuration(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="font-bold">
+              Déplacement
+              <select className="field mt-1" value={excursion.transport} onChange={(e) => onChange({ ...excursion, transport: e.target.value as Transport })}>
+                {TRANSPORTS.map((t) => (
+                  <option key={t} value={t}>
+                    {TRANSPORT_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {excursion.steps.length > 0 ? <p className="pb-2 text-xs text-ink-3">La destination se choisit avant d&apos;ajouter des étapes.</p> : null}
+        </details>
         <p className="text-xs text-ink-3">
           Heures locales de {destination.name} ({destination.timezone})
           {deviceTz && deviceTz !== destination.timezone ? ` — votre appareil est réglé sur ${deviceTz}.` : "."}

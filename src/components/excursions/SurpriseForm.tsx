@@ -27,22 +27,28 @@ export function SurpriseForm({
   initialDestinationId,
   preferences,
   availableMinutes,
+  initialRequest = null,
   onSubmit,
 }: {
   catalog: Catalog;
   initialDestinationId: string | null;
   preferences: TripPreferences;
   availableMinutes: number;
+  /** Dernière demande : « Modifier les critères » repart de ces réglages. */
+  initialRequest?: SurpriseRequest | null;
   onSubmit: (request: SurpriseRequest) => void;
 }) {
-  const firstDestination = catalog.destinations.find((d) => d.id === initialDestinationId) ?? catalog.destinations[0]!;
+  const firstDestination = catalog.destinations.find((d) => d.id === (initialRequest?.destinationId ?? initialDestinationId)) ?? catalog.destinations[0]!;
   const [destinationId, setDestinationId] = useState(firstDestination.id);
   const destination = catalog.destinations.find((d) => d.id === destinationId)!;
-  const [date, setDate] = useState(() => addDays(todayIn(destination.timezone), 1));
-  const [startTime, setStartTime] = useState("10:00");
-  const [durationMinutes, setDuration] = useState(DURATIONS.some((d) => d.minutes === availableMinutes) ? availableMinutes : 300);
-  const [prefs, setPrefs] = useState<TripPreferences>(preferences);
-  const [budgetText, setBudgetText] = useState(preferences.budget.amount === null ? "" : String(preferences.budget.amount));
+  const [date, setDate] = useState(() => initialRequest?.date ?? addDays(todayIn(destination.timezone), 1));
+  const [startTime, setStartTime] = useState(initialRequest?.startTime ?? "10:00");
+  const [durationMinutes, setDuration] = useState(initialRequest?.durationMinutes ?? (DURATIONS.some((d) => d.minutes === availableMinutes) ? availableMinutes : 300));
+  const initialPrefs: TripPreferences = initialRequest
+    ? { party: initialRequest.party, budget: initialRequest.budget, transport: initialRequest.transport, interests: initialRequest.interests, needs: initialRequest.needs, includeMeal: initialRequest.includeMeal }
+    : preferences;
+  const [prefs, setPrefs] = useState<TripPreferences>(initialPrefs);
+  const [budgetText, setBudgetText] = useState(initialPrefs.budget.amount === null ? "" : String(initialPrefs.budget.amount));
 
   const set = (patch: Partial<TripPreferences>) => setPrefs((p) => ({ ...p, ...patch }));
 
@@ -223,7 +229,7 @@ export function SurpriseForm({
       <button type="submit" className="btn btn-primary w-full text-base">
         <Wand2 size={20} aria-hidden="true" /> Composer ma sortie
       </button>
-      <p className="text-center text-xs text-ink-3">Moteur déterministe et explicable : aucune IA, aucun lieu inventé.</p>
+      <p className="text-center text-xs text-ink-3">Moteur déterministe et explicable, sans IA : il ne propose que des lieux du catalogue (qui, en démonstration, compte des établissements fictifs signalés comme tels).</p>
     </form>
   );
 }

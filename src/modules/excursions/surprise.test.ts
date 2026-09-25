@@ -3,6 +3,7 @@ import { baseRequest, catalog, idGenerator } from "@/test/fixtures";
 import { parseHHMM } from "@/modules/shared/time";
 import { computeBudget, scheduleExcursion, transferMarginMinutes } from "./schedule";
 import { alternativesFor, moveStep, replaceStep, surprise } from "./surprise";
+import { DEFAULT_PREFERENCES } from "./types";
 
 describe("Surprends-nous", () => {
   it("propose 3 à 5 étapes de la destination demandée", () => {
@@ -13,6 +14,16 @@ describe("Surprends-nous", () => {
     const ids = result.steps.map((s) => s.placeId);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(id.startsWith("lyon-")).toBe(true);
+  });
+
+  it("réussit avec les réglages par défaut du formulaire, dans chaque destination", () => {
+    for (const destination of catalog.destinations) {
+      for (const seed of [0, 1, 2, 3, 4]) {
+        const result = surprise({ ...DEFAULT_PREFERENCES, destinationId: destination.id, date: "2026-10-03", startTime: "10:00", durationMinutes: 300, seed }, catalog, idGenerator());
+        expect(result.status, `${destination.id} graine ${seed}`).toBe("ok");
+        expect(result.steps.length).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 
   it("est déterministe pour une même graine", () => {

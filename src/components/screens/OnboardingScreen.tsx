@@ -17,7 +17,7 @@ import { useHorizon } from "../providers/HorizonProvider";
 const BUDGETS: Array<{ amount: number | null; label: string }> = [
   { amount: 0, label: "Gratuit" },
   { amount: 20, label: "≈ 20 €" },
-  { amount: 50, label: "≈ 50 €" },
+  { amount: 60, label: "≈ 60 €" },
   { amount: 100, label: "≈ 100 €" },
   { amount: null, label: "Sans limite" },
 ];

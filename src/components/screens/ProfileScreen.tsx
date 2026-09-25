@@ -166,12 +166,12 @@ export function ProfileScreen() {
             const has = owned.has(b.id);
             const Icon = iconByName(b.icon);
             return (
-              <li key={b.id} className={`card p-4 ${has ? "" : "opacity-70"}`}>
+              <li key={b.id} className={`card p-4 ${has ? "" : "border-dashed bg-surface-2"}`}>
                 <span className={`grid h-11 w-11 place-items-center rounded-full ${has ? "bg-coral-soft text-coral-ink" : "bg-surface-2 text-ink-3"}`}>
                   {has ? <Icon size={20} aria-hidden="true" /> : <Lock size={18} aria-hidden="true" />}
                 </span>
                 <p className="mt-2 font-bold">{b.label}</p>
-                <p className="text-xs text-ink-3">{b.description}</p>
+                <p className="text-xs text-ink-2">{b.description}</p>
                 <p className="mt-1 text-[11px] font-bold">{has ? "Obtenu" : "À obtenir"}</p>
               </li>
             );
@@ -179,12 +179,13 @@ export function ProfileScreen() {
           {destinations.map((d) => {
             const has = owned.has(medalBadgeId(d.id));
             return (
-              <li key={d.id} className={`card p-4 ${has ? "" : "opacity-70"}`}>
+              <li key={d.id} className={`card p-4 ${has ? "" : "border-dashed bg-surface-2"}`}>
                 <span className={`grid h-11 w-11 place-items-center rounded-full ${has ? "bg-coral-soft text-coral-ink" : "bg-surface-2 text-ink-3"}`}>
                   {has ? <Award size={20} aria-hidden="true" /> : <Lock size={18} aria-hidden="true" />}
                 </span>
                 <p className="mt-2 font-bold">{badgeLabel(medalBadgeId(d.id), catalog.catalog)}</p>
-                <p className="text-xs text-ink-3">Visiter les {d.medalRoute.placeIds.length} lieux du parcours défini.</p>
+                <p className="text-xs text-ink-2">Visiter les {d.medalRoute.placeIds.length} lieux du parcours défini.</p>
+                <p className="mt-1 text-[11px] font-bold">{has ? "Obtenue" : "À obtenir"}</p>
               </li>
             );
           })}

@@ -15,7 +15,9 @@ import { MissionsPanel } from "../progress/MissionsPanel";
 export function DiscoverScreen() {
   const { catalog, state, status } = useHorizon();
   const params = useSearchParams();
-  const [destinationId, setDestinationId] = useState<string | null>(params.get("destination"));
+  const requested = params.get("destination");
+  // Identifiant inconnu dans l'URL : on revient à « Toutes » plutôt qu'à des sections vides.
+  const [destinationId, setDestinationId] = useState<string | null>(requested && catalog.destinationsById.has(requested) ? requested : null);
   const geo = useGeolocation();
   const fix = geo.state.status === "ok" ? geo.state.fix : null;
   const position = useMemo(() => (fix ? { lat: fix.lat, lng: fix.lng } : null), [fix]);

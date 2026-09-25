@@ -143,7 +143,8 @@ export function HorizonProvider({
       renameCollection: wrap((id, n) => store.renameCollection(id, n)),
       deleteCollection: wrap((id) => store.deleteCollection(id)),
       togglePlaceInCollection: wrap((c, p) => store.togglePlaceInCollection(c, p)),
-      saveExcursion: wrap((e) => store.saveExcursion(e)),
+      // Un titre laissé vide reçoit un nom par défaut au moment d'enregistrer.
+      saveExcursion: wrap((e) => store.saveExcursion({ ...e, title: e.title.trim() || "Excursion" })),
       deleteExcursion: wrap((id) => store.deleteExcursion(id)),
       reportError: wrap((r) => store.reportError(r)),
       reset: wrap(() => store.reset()),

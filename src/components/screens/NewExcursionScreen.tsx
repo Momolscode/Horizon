@@ -10,6 +10,7 @@ import { addDays, formatLocalDate, todayIn } from "@/modules/shared/time";
 import { useHorizon } from "../providers/HorizonProvider";
 import { SurpriseForm } from "../excursions/SurpriseForm";
 import { ExcursionEditor } from "../excursions/ExcursionEditor";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -19,7 +20,9 @@ export function NewExcursionScreen() {
   const { catalog, state, actions, toast } = useHorizon();
   const router = useRouter();
   const params = useSearchParams();
-  const initialDestination = params.get("destination");
+  // Un identifiant de destination inconnu dans l'URL est ignoré (pas de plantage).
+  const requestedDestination = params.get("destination");
+  const initialDestination = requestedDestination && catalog.destinationsById.has(requestedDestination) ? requestedDestination : null;
   const initialPlace = params.get("lieu") ? catalog.placesById.get(params.get("lieu")!) : undefined;
   const manual = params.get("mode") === "manuel" || Boolean(initialPlace);
 
@@ -70,10 +73,18 @@ export function NewExcursionScreen() {
   };
 
   const reasons = useMemo(() => result?.reasonsByPlace, [result]);
+  const [saving, setSaving] = useState(false);
+  // Une proposition non enregistrée est un brouillon : on prévient avant de la perdre.
+  useUnsavedChangesGuard(Boolean(draft && draft.steps.length > 0) && !saving);
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
-      <button type="button" onClick={() => (draft && !manual ? (setDraft(null), setResult(null)) : router.push("/excursions"))} className="mb-2 inline-flex min-h-11 items-center gap-1 font-bold text-ink-2">
+      <button type="button" onClick={() => {
+          if (draft && !manual) {
+            setDraft(null);
+            setResult(null);
+          } else if (!draft?.steps.length || window.confirm("Des modifications ne sont pas enregistrées. Quitter quand même ?")) router.push("/excursions");
+        }} className="mb-2 inline-flex min-h-11 items-center gap-1 font-bold text-ink-2">
         <ChevronLeft size={18} aria-hidden="true" /> {draft && !manual ? "Modifier les critères" : "Excursions"}
       </button>
       {!draft ? (
@@ -81,7 +92,14 @@ export function NewExcursionScreen() {
           <p className="eyebrow">Surprends-nous</p>
           <h1 className="mb-1 text-4xl font-semibold">On compose votre sortie</h1>
           <p className="mb-6 text-ink-2">Quelques réglages, puis une proposition de 3 à 5 étapes que vous pourrez modifier.</p>
-          <SurpriseForm catalog={catalog.catalog} initialDestinationId={initialDestination} preferences={state.preferences.trip} availableMinutes={state.preferences.availableMinutes} onSubmit={run} />
+          <SurpriseForm
+            catalog={catalog.catalog}
+            initialDestinationId={initialDestination}
+            preferences={state.preferences.trip}
+            availableMinutes={state.preferences.availableMinutes}
+            initialRequest={request}
+            onSubmit={run}
+          />
         </>
       ) : (
         <>
@@ -98,10 +116,11 @@ export function NewExcursionScreen() {
             onChange={setDraft}
             onReroll={request ? () => run({ ...request, seed: request.seed + 1 }) : undefined}
             onSave={async () => {
+              setSaving(true);
               if (await actions.saveExcursion(draft)) {
                 toast("Excursion enregistrée.", "success");
                 router.push(`/excursions/${draft.id}`);
-              }
+              } else setSaving(false);
             }}
           />
         </>

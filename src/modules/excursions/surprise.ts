@@ -167,75 +167,97 @@ export function surprise(request: SurpriseRequest, catalog: Catalog, newId: () =
   const end = start + request.durationMinutes;
   const target = Math.max(3, Math.min(5, Math.floor(request.durationMinutes / 75)));
   const meal = mealWindowToFill(request);
-  const chosen: ScoredPlace[] = [];
-  const stepReasons: Record<string, string[]> = {};
-  let clock = start;
-  let previous: Place | null = null;
-  let mealPlaced = meal === null;
 
-  while (chosen.length < target) {
-    const needMealNow = !mealPlaced && meal !== null && clock >= meal.start - 45 && clock <= meal.end - 45;
-    const remainingSlots = target - chosen.length;
-    const mustReserveMeal = !mealPlaced && meal !== null && remainingSlots === 1 && clock < meal.end;
+  type Attempt = { chosen: ScoredPlace[]; stepReasons: Record<string, string[]>; notes: string[]; total: number };
 
-    let best: { candidate: ScoredPlace; value: number; arrival: number; departure: number; hours: string; meters: number } | null = null;
-    for (const candidate of pool) {
-      if (chosen.some((c) => c.place.id === candidate.place.id)) continue;
-      const mealCandidate = isMealPlace(candidate.place);
-      if (needMealNow || mustReserveMeal) {
-        if (!mealCandidate) continue;
-      } else if (candidate.place.category === "restaurant") {
-        continue; // les restaurants ne sont proposés qu'au moment d'un repas
-      } else if (mealCandidate && chosen.some((c) => isMealPlace(c.place))) {
-        continue;
+  // Composition gloutonne à partir d'un premier lieu imposé (ou libre si null).
+  const compose = (forcedFirst: ScoredPlace | null): Attempt => {
+    const chosen: ScoredPlace[] = [];
+    const stepReasons: Record<string, string[]> = {};
+    const notes: string[] = [];
+    let total = 0;
+    let clock = start;
+    let previous: Place | null = null;
+    let mealPlaced = meal === null;
+
+    while (chosen.length < target) {
+      const needMealNow = !mealPlaced && meal !== null && clock >= meal.start - 45 && clock <= meal.end - 45;
+      const remainingSlots = target - chosen.length;
+      const mustReserveMeal = !mealPlaced && meal !== null && remainingSlots === 1 && clock < meal.end;
+
+      let best: { candidate: ScoredPlace; value: number; arrival: number; departure: number; hours: string; meters: number } | null = null;
+      const candidates = chosen.length === 0 && forcedFirst ? [forcedFirst] : pool;
+      for (const candidate of candidates) {
+        if (chosen.some((c) => c.place.id === candidate.place.id)) continue;
+        const mealCandidate = isMealPlace(candidate.place);
+        if (needMealNow || mustReserveMeal) {
+          if (!mealCandidate) continue;
+        } else if (candidate.place.category === "restaurant") {
+          continue; // les restaurants ne sont proposés qu'au moment d'un repas
+        } else if (mealCandidate && chosen.some((c) => isMealPlace(c.place))) {
+          continue;
+        }
+        const meters: number = previous ? straightLineMeters(previous.location, candidate.place.location) : 0;
+        if (previous && meters / 1000 > MAX_HOP_KM[request.transport]) continue;
+        const arrival: number = clock + (previous ? transferMarginMinutes(meters, request.transport) : 0);
+        const departure = arrival + visitMinutesOf(candidate.place);
+        if (departure > end + 15) continue;
+        // Ne pas « sauter » la fenêtre du repas avec une visite trop longue.
+        if (!mealCandidate && meal && !mealPlaced && clock < meal.start - 45 && departure > meal.end - 45) continue;
+        const hours = fitsHours(candidate.place, request.date, arrival, departure);
+        if (hours === "closed") continue;
+        let value: number = candidate.score - distancePenalty(meters, request);
+        if (previous && previous.category === candidate.place.category) value -= 1.5;
+        if (chosen.some((c) => c.place.category === candidate.place.category)) value -= 0.75;
+        if (hours === "open") value += 0.25;
+        if (!best || value > best.value || (value === best.value && candidate.place.id < best.candidate.place.id)) {
+          best = { candidate, value, arrival, departure, hours, meters };
+        }
       }
-      const meters: number = previous ? straightLineMeters(previous.location, candidate.place.location) : 0;
-      if (previous && meters / 1000 > MAX_HOP_KM[request.transport]) continue;
-      const arrival: number = clock + (previous ? transferMarginMinutes(meters, request.transport) : 0);
-      const departure = arrival + visitMinutesOf(candidate.place);
-      if (departure > end + 15) continue;
-      // Ne pas « sauter » la fenêtre du repas avec une visite trop longue.
-      if (!mealCandidate && meal && !mealPlaced && clock < meal.start - 45 && departure > meal.end - 45) continue;
-      const hours = fitsHours(candidate.place, request.date, arrival, departure);
-      if (hours === "closed") continue;
-      let value: number = candidate.score - distancePenalty(meters, request);
-      if (previous && previous.category === candidate.place.category) value -= 1.5;
-      if (chosen.some((c) => c.place.category === candidate.place.category)) value -= 0.75;
-      if (hours === "open") value += 0.25;
-      if (!best || value > best.value || (value === best.value && candidate.place.id < best.candidate.place.id)) {
-        best = { candidate, value, arrival, departure, hours, meters };
-      }
-    }
 
-    if (!best) {
-      if (needMealNow && !mustReserveMeal) {
-        // Pas de table compatible : on le dit plutôt que d'inventer.
+      if (!best) {
+        if (needMealNow && !mustReserveMeal) {
+          // Pas de table compatible : on le dit plutôt que d'inventer.
+          mealPlaced = true;
+          notes.push(`Aucun lieu de repas compatible trouvé pour le ${meal!.label} : prévoyez une solution sur place.`);
+          continue;
+        }
+        break;
+      }
+
+      const place: Place = best.candidate.place;
+      const reasons = best.candidate.reasons
+        .slice()
+        .sort((a, b) => b.weight - a.weight)
+        .map((r) => r.label);
+      if (isMealPlace(place) && meal && !mealPlaced) {
+        reasons.unshift(`Pause ${meal.label} vers ${formatMinutes(best.arrival)}`);
         mealPlaced = true;
-        explanation.push(`Aucun lieu de repas compatible trouvé pour le ${meal!.label} : prévoyez une solution sur place.`);
-        continue;
       }
-      break;
+      if (previous) {
+        const km = best.meters / 1000;
+        reasons.push(km < 1 ? `À ${Math.round(best.meters / 10) * 10} m à vol d'oiseau de l'étape précédente` : `À ${km.toFixed(1).replace(".", ",")} km à vol d'oiseau de l'étape précédente`);
+      }
+      if (best.hours === "unknown") reasons.push("Horaires inconnus : à vérifier");
+      stepReasons[place.id] = reasons.length > 0 ? reasons : ["Complète l'itinéraire"];
+      chosen.push(best.candidate);
+      total += best.value;
+      clock = best.departure;
+      previous = place;
     }
+    return { chosen, stepReasons, notes, total };
+  };
 
-    const place: Place = best.candidate.place;
-    const reasons = best.candidate.reasons
-      .slice()
-      .sort((a, b) => b.weight - a.weight)
-      .map((r) => r.label);
-    if (isMealPlace(place) && meal && !mealPlaced) {
-      reasons.unshift(`Pause ${meal.label} vers ${formatMinutes(best.arrival)}`);
-      mealPlaced = true;
-    }
-    if (previous) {
-      const km = best.meters / 1000;
-      reasons.push(km < 1 ? `À ${Math.round(best.meters / 10) * 10} m à vol d'oiseau de l'étape précédente` : `À ${km.toFixed(1).replace(".", ",")} km à vol d'oiseau de l'étape précédente`);
-    }
-    if (best.hours === "unknown") reasons.push("Horaires inconnus : à vérifier");
-    stepReasons[place.id] = reasons.length > 0 ? reasons : ["Complète l'itinéraire"];
-    chosen.push(best.candidate);
-    clock = best.departure;
-    previous = place;
+  // Un premier lieu isolé (ex. à 10 km à pied) bloquerait toute la suite : on essaie
+  // chaque point de départ et on garde la proposition la plus complète, puis la mieux
+  // notée. Déterministe : mêmes critères, même résultat.
+  let attempt = compose(null);
+  for (const first of pool) {
+    const other = compose(first);
+    if (other.chosen.length > attempt.chosen.length || (other.chosen.length === attempt.chosen.length && other.total > attempt.total + 1e-9)) attempt = other;
   }
+  const { chosen, stepReasons } = attempt;
+  explanation.push(...attempt.notes);
 
   const steps: ExcursionStep[] = chosen.map((c) => ({ id: newId(), placeId: c.place.id, visitMinutes: visitMinutesOf(c.place), note: null }));
   const schedule = scheduleExcursion({ ...request, steps }, catalog);

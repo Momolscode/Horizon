@@ -55,7 +55,8 @@ export function MapScreen() {
 
   const savedIds = useMemo(() => new Set(state.collections.flatMap((c) => c.placeIds)), [state.collections]);
   const visitedIds = useMemo(
-    () => new Set(state.progression.visits.filter((v) => VISIT_RULES[v.status].journal).map((v) => v.placeId)),
+    // Même règle que la fiche et le passeport : seules les visites réelles marquent un lieu « visité ».
+    () => new Set(state.progression.visits.filter((v) => VISIT_RULES[v.status].countsAsRealVisit).map((v) => v.placeId)),
     [state.progression.visits],
   );
 
@@ -135,13 +136,16 @@ export function MapScreen() {
   const destinationStats = currentDestination
     ? {
         places: catalog.placesByDestination.get(currentDestination.id)?.length ?? 0,
-        parcels: parcelsInBbox(state.progression.parcels, currentDestination.bbox).length,
+        parcels: parcelsInBbox(state.progression.parcels, currentDestination.bbox).filter((p) => p.state !== "simulated").length,
+        simulated: parcelsInBbox(state.progression.parcels, currentDestination.bbox).filter((p) => p.state === "simulated").length,
         cells: cellsInBbox(currentDestination.bbox),
       }
     : null;
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    // Sur mobile, la zone s'arrête au-dessus de la barre de navigation : rien (fiche,
+    // mentions, attribution) ne passe dessous.
+    <div className="absolute inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-0 overflow-hidden lg:bottom-0">
       {/* Carte ou liste */}
       <div className={listMode ? "invisible" : "absolute inset-0"} aria-hidden={listMode}>
         {failure === "webgl" ? (
@@ -200,6 +204,17 @@ export function MapScreen() {
             </ul>
           )}
         </section>
+      ) : null}
+
+      {/* La fiche ouverte porte son propre titre de niveau 1. */}
+      {!selected ? <h1 className="sr-only">{currentDestination ? `Carte : ${currentDestination.name}` : "Carte d'exploration"}</h1> : null}
+      {selectedId && !selected ? (
+        <p role="status" className="absolute inset-x-3 top-[124px] z-20 mx-auto max-w-md rounded-2xl bg-warn-soft px-4 py-3 text-sm font-semibold text-warn-ink shadow-card sm:inset-x-4 lg:left-[456px] lg:mx-0">
+          Ce lieu n&apos;existe pas (ou plus) dans le catalogue.{" "}
+          <button type="button" className="underline" onClick={() => router.replace("/carte")}>
+            Fermer
+          </button>
+        </p>
       ) : null}
 
       {/* Barre supérieure */}
@@ -316,6 +331,7 @@ export function MapScreen() {
                 <p className="mt-1 text-sm text-ink-2">
                   {destinationStats.places} lieux · {destinationStats.parcels} parcelle{destinationStats.parcels > 1 ? "s" : ""} explorée{destinationStats.parcels > 1 ? "s" : ""} sur{" "}
                   {destinationStats.cells} dans l&apos;emprise ({((destinationStats.parcels / destinationStats.cells) * 100).toFixed(1).replace(".", ",")} %)
+                  {destinationStats.simulated ? ` · ${destinationStats.simulated} simulée${destinationStats.simulated > 1 ? "s" : ""} (non comptée${destinationStats.simulated > 1 ? "s" : ""})` : ""}
                 </p>
                 <div className="mt-3 flex gap-2">
                   <Link href={`/excursions/nouvelle?destination=${currentDestination.id}`} className="btn btn-primary flex-1">

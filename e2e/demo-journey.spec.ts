@@ -134,7 +134,45 @@ test.describe("parcours de recette — mode démo", () => {
   test("une excursion inconnue affiche un état vide explicite", async ({ page }) => {
     await openApp(page, "/excursions/inexistante");
     await expect(page.getByRole("heading", { name: "Excursion introuvable" })).toBeVisible();
+    // Page rendue en streaming sous une frontière Suspense : Next ne peut plus changer le
+    // statut (200) mais sert la page 404 avec « noindex » (limite documentée).
     await page.goto("/lieux/inexistant");
-    await expect(page.getByRole("heading", { name: "Lieu introuvable" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Page introuvable" })).toBeVisible();
+    expect(await page.locator('meta[name="robots"][content*="noindex"]').count()).toBeGreaterThan(0);
+    expect((await page.goto("/adresse-inventee"))?.status()).toBe(404);
+    await expect(page.getByRole("link", { name: "Ouvrir la carte" })).toBeVisible();
+  });
+
+  test("paramètres d'URL invalides : pas de plantage, retour à un état valide", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await openApp(page, "/excursions/nouvelle?mode=manuel&destination=zzz");
+    await expect(page.getByLabel("Titre de l'excursion")).toBeVisible();
+    await page.goto("/decouvrir?destination=zzz");
+    await expect(page.getByRole("radio", { name: "Toutes" })).toHaveAttribute("aria-checked", "true");
+    await page.goto("/carte?lieu=inexistant");
+    await expect(page.getByRole("status").filter({ hasText: "n'existe pas" })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test("« Surprends-nous » avec les réglages par défaut, puis « Modifier les critères » conserve les choix", async ({ page }) => {
+    await openApp(page, "/excursions/nouvelle");
+    await page.getByRole("radio", { name: "Marseille" }).click();
+    await page.getByRole("button", { name: /Composer ma sortie/ }).click();
+    await expect(page.locator("ol[aria-label] > li").first()).toBeVisible();
+    await expect(page.getByText("Proposition incomplète")).toBeHidden();
+    await page.getByRole("button", { name: "Modifier les critères" }).click();
+    await expect(page.getByRole("radio", { name: "Marseille" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("sur mobile, le panneau d'exploration reste au-dessus de la barre de navigation", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "Barre de navigation inférieure : mobile uniquement");
+    await openApp(page, "/carte");
+    await page.getByRole("button", { name: "Lyon", exact: true }).click();
+    const panel = page.getByRole("region", { name: "Exploration" });
+    await expect(panel).toBeVisible();
+    const navTop = (await page.getByRole("navigation", { name: "Navigation principale" }).boundingBox())!.y;
+    const panelBox = (await panel.boundingBox())!;
+    expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(navTop + 1);
   });
 });

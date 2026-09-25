@@ -92,7 +92,7 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 |---|---|---|
 | `npm run typecheck`, `npm run lint`, `npm test` | types, lint, logique pure et stockage démo | aucun |
 | `npm run build:demo && npm run test:e2e` | parcours démo, mobile (390×844) et ordinateur (1440×900) | Chromium Playwright |
-| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1 | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`) |
+| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1, constats de la revue finale | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`) |
 | `npm run test:e2e:connected` | inscription, persistance, isolation, liste d'attente, P1 | pile Supabase locale démarrée et réinitialisée |
 | `node scripts/screenshots.mjs [url] [dossier]` | captures réelles pilotées | serveur démo sur le port 3100 |
 
@@ -120,7 +120,13 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 ### Barèmes et missions
 
 - `progression_settings` contient des barèmes versionnés au format `ProgressionConfig` (validés par Zod). Une seule version est active à la fois ; l'administration en crée une nouvelle au lieu d'écraser l'ancienne.
-- `missions` contient les définitions. L'évaluation se fait côté serveur, sur la date de création des événements, dans le fuseau Europe/Paris.
+- `missions` contient les définitions. L'évaluation se fait côté serveur, sur la date de création des événements, dans le fuseau Europe/Paris. Seule la première visite réelle d'un lieu compte.
+- Le barème v1 et les 4 missions sont fournis par la migration `20260925000400_reference_data.sql` (`on conflict do nothing`) : une installation de production n'a pas besoin du seed de démonstration pour les avoir.
+
+### Cohérence du catalogue
+
+- Une modification de lieu par l'administration (`src/server/places-admin.ts`) est validée en relisant le catalogue dans la même transaction. Si elle le rendait incohérent (parcours médaille sous 3 lieux, valeur « connue » sur un lieu non vérifié), elle est refusée avec une erreur 409.
+- Les lieux dépubliés sortent automatiquement des parcours médaille.
 
 ### Données personnelles (mode connecté)
 
@@ -165,14 +171,14 @@ Autres garanties :
 
 Aucun déploiement n'a été effectué : il demande l'accord du porteur du projet. Étapes prévues :
 
-1. Créer un projet Supabase (région UE), appliquer `supabase/migrations/*` (`supabase db push`), puis le seed ou un catalogue vérifié.
+1. Créer un projet Supabase (région UE), puis appliquer `supabase/migrations/*` (`supabase db push`), qui apportent aussi le barème v1 et les missions. Charger ensuite un catalogue vérifié ; le seed n'est que la démonstration.
 2. Configurer Auth : URL du site, redirections, confirmation d'e-mail, SMTP, longueur minimale du mot de passe.
 3. Héberger Next.js (Vercel, ou tout hôte Node 22). Variables :
    - `NEXT_PUBLIC_HORIZON_MODE=connected` ;
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ;
    - `DATABASE_URL` (pooler Supabase en mode transaction), `WAITLIST_HASH_SALT`.
 4. La CSP (`next.config.ts`) dérive `connect-src` des variables : reconstruire après tout changement de fournisseur.
-5. Le limiteur de débit est en mémoire et par instance. En production multi-instances, le remplacer par un stockage partagé (Redis, table Postgres).
+5. Le limiteur de débit est en mémoire et par instance. En production multi-instances, le remplacer par un stockage partagé (Redis, table Postgres). Vérifier aussi que l'hébergeur écrase bien `x-forwarded-for`, sur lequel repose la clé des routes anonymes.
 6. Lancer la CI (`.github/workflows/ci.yml`), qui n'a jamais été exécutée sur GitHub.
 
 ## 7. Sauvegarde et restauration

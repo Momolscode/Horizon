@@ -29,9 +29,10 @@ async function api<T = Json>(path: string, init?: RequestInit): Promise<{ ok: bo
   return { ok: res.ok, status: res.status, data: (await res.json().catch(() => ({}))) as T };
 }
 
-function useAdminData<T>(path: string, version: number) {
+function useAdminData<T>(path: string | null, version: number) {
   const [state, setState] = useState<{ status: number; data: T | null }>({ status: -1, data: null });
   useEffect(() => {
+    if (!path) return; // démonstration : aucune requête vers une API absente
     let cancelled = false;
     void api<T>(path).then((r) => {
       if (!cancelled) setState({ status: r.status, data: r.ok ? r.data : null });
@@ -57,7 +58,7 @@ export function AdminScreen() {
   const [version, setVersion] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
-  const overview = useAdminData<{ counts: Record<string, number>; metrics: Metrics }>("/api/admin/overview", version);
+  const overview = useAdminData<{ counts: Record<string, number>; metrics: Metrics }>(MODE.mode === "connected" ? "/api/admin/overview" : null, version);
 
   if (MODE.mode !== "connected") {
     return (

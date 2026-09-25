@@ -75,3 +75,20 @@ Format court : contexte → décision → conséquences. Les décisions réversi
 
 - **Décision :** plugin `superpowers@superpowers-marketplace` déclaré au niveau du projet (`.claude/settings.json`), à la demande du porteur.
 - **Conséquences :** seuls les outils de développement sont concernés ; l'application n'est pas touchée.
+
+## D-013 — « Surprends-nous » : essai de chaque point de départ
+
+- **Contexte :** la composition gloutonne choisissait le premier lieu sans contrainte de distance. Un lieu isolé (Talloires, à une dizaine de kilomètres d'Annecy) bloquait alors toute la suite à pied, et la proposition tombait à 1 étape avec les réglages par défaut.
+- **Décision :** composer à partir de chaque lieu admissible comme première étape, puis garder la proposition la plus complète, et à égalité la mieux notée. Le résultat reste déterministe.
+- **Conséquences :** le coût de calcul est multiplié par le nombre de lieux d'une destination (une dizaine aujourd'hui). À revoir, par exemple avec une présélection par proximité, si un catalogue compte des centaines de lieux par destination.
+
+## D-014 — Données de référence par migration
+
+- **Décision :** le barème de progression v1 et les missions sont insérés par une migration (`on conflict do nothing`). Le seed ne contient plus que la démonstration.
+- **Conséquences :** une base de production fonctionne sans le catalogue de démonstration. Les évolutions passent par l'administration (barèmes versionnés, missions) ou par une nouvelle migration, jamais en modifiant une migration déjà appliquée.
+
+## D-015 — 404 « douce » pour les lieux inconnus
+
+- **Contexte :** les pages de l'application sont rendues sous une frontière Suspense (paramètres d'URL côté client). Une fois le streaming commencé, Next.js ne peut plus changer le statut HTTP.
+- **Décision :** accepter une 404 « douce » : page « Page introuvable » en français, avec `noindex`, mais statut 200. Les adresses hors application renvoient un vrai 404.
+- **Alternative écartée pour l'instant :** vérifier l'identifiant dans `proxy.ts` avant le rendu. En mode connecté, il faudrait lire le catalogue en base à chaque requête.

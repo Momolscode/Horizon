@@ -8,6 +8,7 @@ import type { Excursion } from "@/modules/excursions/types";
 import { useHorizon } from "../providers/HorizonProvider";
 import { ExcursionEditor } from "../excursions/ExcursionEditor";
 import { ShareDialog } from "../excursions/ShareDialog";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
 export function ExcursionDetailScreen({ id }: { id: string }) {
   const { state, actions, toast } = useHorizon();
@@ -16,6 +17,8 @@ export function ExcursionDetailScreen({ id }: { id: string }) {
   const stored = state.excursions.find((e) => e.id === id) ?? null;
   const [draft, setDraft] = useState<Excursion | null>(stored);
   const [syncedWith, setSyncedWith] = useState<Excursion | null>(stored);
+  const dirty = Boolean(stored && draft) && JSON.stringify(draft) !== JSON.stringify(stored);
+  useUnsavedChangesGuard(dirty);
   if (stored !== syncedWith) {
     // La version enregistrée a changé (sauvegarde, autre onglet) : on repart d'elle.
     setSyncedWith(stored);
@@ -33,7 +36,6 @@ export function ExcursionDetailScreen({ id }: { id: string }) {
       </div>
     );
   }
-  const dirty = JSON.stringify(draft) !== JSON.stringify(stored);
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
       <div className="mb-2 flex items-center justify-between">

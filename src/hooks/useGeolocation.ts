@@ -10,7 +10,7 @@ export type GeoState =
   | { status: "error"; reason: "denied" | "unavailable" | "timeout" | "unsupported"; message: string };
 
 const MESSAGES = {
-  denied: "Localisation refusée : la recherche manuelle reste disponible.",
+  denied: "Localisation refusée par le navigateur : vous pouvez continuer sans elle.",
   unavailable: "Position indisponible sur cet appareil pour le moment.",
   timeout: "La position n'a pas pu être obtenue à temps.",
   unsupported: "Ce navigateur ne permet pas la localisation.",

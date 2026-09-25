@@ -39,7 +39,7 @@ async function run(viewportName, viewport, deviceScaleFactor) {
   await page.waitForTimeout(2500);
   await shoot(page, p("02-carte-france"));
   await page.getByRole("button", { name: "Lyon", exact: true }).click();
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(4000);
   await shoot(page, p("03-carte-lyon-voile"));
   await page.getByRole("combobox", { name: /Rechercher/ }).fill("fourv");
   await shoot(page, p("04-recherche"));
@@ -73,7 +73,7 @@ async function run(viewportName, viewport, deviceScaleFactor) {
   await page.waitForTimeout(1600);
   await shoot(page, p("13-revelation-parcelle"));
   await reveal.getByRole("button", { name: "Voir sur ma carte" }).click();
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(5000);
   await shoot(page, p("14-carte-parcelle-revelee"));
   for (const id of ["lyon-vieux-lyon", "lyon-tete-d-or", "lyon-theatres-romains"]) {
     const d = await declareVisit(page, id);
@@ -94,7 +94,8 @@ async function run(viewportName, viewport, deviceScaleFactor) {
   await page.goto(`${BASE}/profil/parametres`);
   await page.getByRole("radio", { name: "Nuit", exact: true }).click();
   await page.goto(`${BASE}/carte?lieu=lyon-fourviere`);
-  await page.waitForTimeout(3000);
+  // Rendu logiciel (SwiftShader) : le vol vers le lieu peut durer plusieurs secondes.
+  await page.waitForTimeout(6000);
   await shoot(page, p("20-nuit-carte"));
   await page.goto(`${BASE}/profil`);
   await shoot(page, p("21-nuit-passeport"));

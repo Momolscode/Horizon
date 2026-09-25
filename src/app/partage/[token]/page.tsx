@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { readModeConfig } from "@/config/mode";
 import { databaseConfigured, getPool } from "@/server/db";
 import { getCachedCatalog } from "@/server/catalog";
@@ -37,14 +38,8 @@ export default async function SharedExcursionPage({ params }: PageProps<"/partag
     );
   }
   const shared = await getSharedExcursion(getPool(), token);
-  if (!shared) {
-    return (
-      <Shell>
-        <h1 className="mt-6 text-3xl font-semibold">Lien révoqué ou inexistant</h1>
-        <p className="mt-2 text-ink-2">La personne qui a partagé cette excursion a peut-être retiré l&apos;accès.</p>
-      </Shell>
-    );
-  }
+  // Vrai statut 404 (page not-found.tsx du segment), sans révéler si le lien a existé.
+  if (!shared) notFound();
   const catalog = (await getCachedCatalog(getPool())).catalog;
   const destination = catalog.destinations.find((d) => d.id === shared.destinationId);
   const prefs = { ...DEFAULT_PREFERENCES, transport: shared.preferences.transport };

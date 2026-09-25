@@ -34,6 +34,7 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - idempotence.
 
   Il reste possible de « cultiver » de l'XP en déclarant de fausses visites dans ces limites. Impact limité : l'XP n'est **pas dépensable**, et les points de récompense n'ont **aucun échange** possible.
+- **Missions :** seules les premières visites d'un lieu les font progresser. La mission quotidienne « Préparer une sortie » (+5 XP) reste en revanche validée par toute création ou modification d'excursion : elle est donc répétable chaque jour sans sortie réelle.
 - **Visites simulées :** propres à la démo, refusées par le serveur en mode connecté.
 - **Paliers de niveau :** l'ajout de points de récompense se rattrape de façon idempotente (`levelRewardCredits`). Un changement de barème ne s'applique qu'aux attributions suivantes : l'historique n'est pas recalculé, et les lignes de `xp_ledger` ne mémorisent pas la version de barème appliquée (seuls les barèmes eux-mêmes sont versionnés).
 
@@ -51,7 +52,8 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - réinitialisation de mot de passe non vérifiée ;
   - pas de connexion par fournisseur tiers (Google, Apple).
 - **Suppression de compte :** implémentée, sans test e2e. Sa purge dans les sauvegardes n'est pas traitée.
-- **Limiteur de débit en mémoire, par instance :** inefficace avec plusieurs instances serverless ou après redémarrage.
+- **Limiteur de débit en mémoire, par instance :** inefficace avec plusieurs instances serverless ou après redémarrage. Pour les routes anonymes (liste d'attente), la clé repose sur `x-forwarded-for` : c'est fiable seulement derrière un proxy qui écrase cet en-tête, à vérifier chez l'hébergeur.
+- **Refus d'ami :** le demandeur peut lire, via l'accès direct à la base (RLS), qu'une demande a été refusée. L'interface ne l'affiche pas.
 - **Liste d'attente :** stockée, mais sans interface d'export ni de purge (requête SQL nécessaire).
 - **Mesure :** activation et rétention seulement. « Données insuffisantes » s'affiche sous 20 personnes par dénominateur. Pas d'entonnoir détaillé ni d'outil d'analyse externe.
 
@@ -61,7 +63,17 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - **Protection CSRF :** vérification d'`Origin` et de `Sec-Fetch-Site`, et exigence d'un corps JSON. Pas de jeton CSRF dédié.
 - **Revue de sécurité :** indépendante, par un agent en lecture seule, dont les constats ont été reproduits par des tests puis corrigés (voir STATUS). **Aucun audit externe ni test d'intrusion.**
 
-## 7. Fonctions non livrées
+## 7. Interface
+
+- **404 « douce » :** `/lieux/<identifiant inconnu>` affiche la page « Page introuvable » avec `noindex`, mais le statut HTTP reste 200. La page est rendue en streaming sous une frontière Suspense, et Next.js ne peut plus changer le statut (documentation Next, « Status codes »). Une adresse inexistante hors de l'application renvoie bien 404.
+- **Modifications non enregistrées :** une confirmation apparaît en quittant par un lien interne ou en fermant l'onglet, mais pas avec le bouton « précédent » du navigateur.
+- **Service worker :** l'exclusion des pages de partage, d'administration et de connexion n'est pas couverte par un test automatisé.
+- **Hypothèses de la revue, non vérifiées :**
+  - le focus n'est peut-être pas restauré après la fermeture de l'animation de révélation ;
+  - les groupes de boutons radio personnalisés ne gèrent pas les flèches du clavier (Tab et Entrée fonctionnent).
+- **Bandeau démo sur mobile :** le texte est tronqué (« lieux non vérifiés, re… »). Chaque lieu ou profil fictif porte néanmoins sa propre étiquette.
+
+## 8. Fonctions non livrées
 
 - Défis amicaux et comparaisons avancées (seule une comparaison simple existe).
 - Mode Duo (excursion collaborative).
@@ -72,14 +84,14 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - Traduction : interface en français uniquement.
 - Import d'un catalogue vérifié : procédure décrite dans HANDOVER, pas d'outil.
 
-## 8. Qualité et outillage
+## 9. Qualité et outillage
 
 - **CI GitHub Actions** fournie, jamais exécutée sur GitHub.
 - **Tests e2e :** exécutés sous Chromium headless uniquement (rendu logiciel SwiftShader). Firefox, Safari et les vrais appareils mobiles n'ont pas été testés.
 - **Accessibilité :** rôles ARIA, focus, contrastes vérifiés visuellement, `prefers-reduced-motion` respecté. Pas d'audit automatisé (axe) ni de test avec lecteur d'écran.
 - **Versions :** ESLint 9 en fin de maintenance ; TypeScript 5.9, alors que 7 existe (voir DECISIONS D-001).
 
-## 9. Juridique et commercial
+## 10. Juridique et commercial
 
 - Nom « HORIZON » et domaine : disponibilité non vérifiée.
 - Politique de confidentialité, CGU et mentions légales : non rédigées ; validation juridique nécessaire.

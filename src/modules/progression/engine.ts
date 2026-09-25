@@ -140,7 +140,9 @@ export type ProgressionStats = {
   distinctPlacesVisited: number;
   distinctCategories: number;
   freePlacesVisited: number;
+  /** Parcelles réellement révélées (les simulations de la démo sont exclues). */
   parcels: number;
+  simulatedParcels: number;
   destinationsWithVisit: number;
 };
 
@@ -154,7 +156,8 @@ export function computeStats(snapshot: ProgressionSnapshot, catalog: Catalog): P
     distinctPlacesVisited: placeIds.size,
     distinctCategories: new Set(places.map((p) => p.category)).size,
     freePlacesVisited: places.filter((p) => p.practical.price.status !== "unknown" && p.practical.price.value.kind === "free").length,
-    parcels: snapshot.parcels.length,
+    parcels: snapshot.parcels.filter((p) => p.state !== "simulated").length,
+    simulatedParcels: snapshot.parcels.filter((p) => p.state === "simulated").length,
     destinationsWithVisit: new Set(places.map((p) => p.destinationId)).size,
   };
 }

@@ -1,37 +1,105 @@
 # État du projet
 
-_Mis à jour le 2026-09-25, jalon 2 (mode connecté, cœur)._
+_Mis à jour le 2026-09-25 : fin de la tâche 7 (vérification visuelle, revue indépendante, dossier de transmission)._
 
-## Réalisé et vérifié
+Environnement de toutes les vérifications ci-dessous :
 
-| Élément | Statut | Commande / preuve | Environnement |
+- conteneur Linux ;
+- Node 22.22.2, npm 10 ;
+- Next 16.3.6 (Turbopack) ;
+- Chromium 1194 headless, via Playwright 1.56.1 (rendu logiciel SwiftShader, WebGL 2) ;
+- Supabase CLI 2.117.0 locale : PostgreSQL 17.6, PostGIS 3.3.7, GoTrue, PostgREST ; images tirées de Docker Hub.
+
+Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
+
+## Vérifications
+
+| Vérification | Statut | Commande | Preuve |
 |---|---|---|---|
-| Types | RÉUSSIE | `npm run typecheck` | Node 22.22.2, conteneur Linux |
-| Lint | RÉUSSIE | `npm run lint` (0 erreur, 0 avertissement) | idem |
-| Tests unitaires (80) | RÉUSSIE | `npm test` | idem, fuseau machine forcé sur America/New_York |
-| Build de production démo | RÉUSSIE | `npm run build:demo` | Next 16.3.6 / Turbopack |
-| Parcours de recette démo (mobile + ordinateur, 8 tests) | RÉUSSIE | `npm run build:demo && npm run test:e2e` | Chromium 1194 headless (SwiftShader, WebGL 2) |
-| Migrations sur base vide | RÉUSSIE | `npx supabase db reset` (2 migrations + seed de 40 lieux) | Supabase CLI 2.117.0, PostgreSQL 17, PostGIS 3.3.7 (images Docker Hub) |
-| RLS et intégrité en base (15 tests) | RÉUSSIE | `npm run test:db` → `rls.db.test.ts` | idem, rôles Supabase réels (`anon`, `authenticated`) |
-| Attribution serveur idempotente et concurrente (11 tests) | RÉUSSIE | `npm run test:db` → `progression.db.test.ts` (10 requêtes simultanées) | idem |
-| Parcours connecté : sans compte, inscription, favori, excursion, visite, rechargement, isolation entre comptes, refus des visites simulées (4 tests) | RÉUSSIE | `npm run test:e2e:connected` | Supabase local (GoTrue, PostgREST, PostgreSQL) + `next dev` |
-| Liste d'attente réellement stockée, anti-énumération, champ piège | RÉUSSIE | `connected-waitlist.spec.ts` | idem |
+| Types | RÉUSSIE | `npm run typecheck` | 0 erreur |
+| Lint (règles React Compiler incluses) | RÉUSSIE | `npm run lint` | 0 erreur, 0 avertissement |
+| Tests unitaires | RÉUSSIE | `npm test` | 13 fichiers, 103 tests |
+| Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 6 fichiers, 54 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale |
+| Build de production démo | RÉUSSIE | `npm run build:demo` | build Next sans erreur |
+| Parcours e2e démo, mobile 390×844 et ordinateur 1440×900 | RÉUSSIE | `npm run build:demo && npm run test:e2e` | 13 réussis, 1 ignoré volontairement (test propre au mobile, ignoré en projet ordinateur) |
+| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 10 tests sur Supabase local + `next dev` |
+| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 4 migrations + seed de 40 lieux |
+| Captures réelles, mobile et ordinateur | RÉUSSIE | `node scripts/screenshots.mjs http://localhost:3100 docs/screenshots` | 46 captures dans `docs/screenshots/`, examinées une à une |
+| Revue indépendante (2 agents en lecture seule : sécurité/intégrité, interface/liens) | RÉUSSIE | voir ci-dessous | 11 + 15 constats, traités |
+| CI GitHub Actions | NON EXÉCUTÉE | `.github/workflows/ci.yml` | jamais lancée sur GitHub |
+| Projet Supabase hébergé | NON EXÉCUTÉE | — | aucun projet cloud créé |
+| Déploiement | NON EXÉCUTÉE | — | hors autorisation |
 
-## Non exécuté ou non livré
+## Parcours connectés couverts (e2e)
 
-- **Projet Supabase hébergé (cloud) :** NON VÉRIFIÉ. Tous les tests connectés utilisent la pile locale officielle, lancée via la CLI.
-- **Confirmation d'e-mail et envoi de mails d'authentification :** NON VÉRIFIÉS. Confirmation désactivée en local, aucun SMTP configuré.
-- **Suppression de compte (`DELETE /api/account`) :** implémentée, NON COUVERTE par un test e2e.
-- **CI GitHub Actions** (qualité, e2e démo, base + connecté) : fichier fourni, NON EXÉCUTÉE sur GitHub.
-- **Liens de navigation externes et adaptateur Open-Meteo :** NON VÉRIFIÉS (aucun accès réseau à ces services).
-- **Fonctions P1** (administration, partage, amis, avis, missions, mesure) : schéma en place (migration 2, appliquée et testée sur base vide), interfaces et routes À FAIRE.
+- Consultation sans compte : rien n'est enregistré et les API sont protégées.
+- Inscription, puis favori, excursion, visite, parcelle et passeport persistés et relus après rechargement.
+- Retour sur l'onglet (Supabase réémet `SIGNED_IN`) : pas de redémarrage, pas d'état périmé.
+- Isolation entre comptes.
+- Refus serveur d'une visite simulée.
+- Liste d'attente : une seule inscription par adresse, champ piège.
+- Partage en lecture seule, révocable.
+- Mission récompensée une seule fois.
+- Amis : invitation par pseudonyme et acceptation.
+- Avis modéré : invisible avant publication, puis publié par un administrateur et journalisé.
 
-## Prochaine tâche
+## Revue finale indépendante : constats et suites
 
-P1 :
+**Serveur et données.** Chaque correctif est couvert par un test dans `src/server/review.db.test.ts`, sauf indication contraire.
 
-- administration protégée (lieux, signalements, avis, corrections XP, journal) ;
-- partage d'excursion révocable ;
-- missions ;
-- amis et avis modérés ;
-- tableau de mesure avec « Données insuffisantes ».
+| # | Constat | Gravité (revue) | Suite |
+|---|---|---|---|
+| S1 | Archiver un lieu d'un parcours médaille cassait tout le catalogue connecté | bloquant | corrigé : les parcours ne gardent que les lieux publiés ; une modification rendant le catalogue incohérent est refusée (409) |
+| S2 | Retour sur l'onglet : remontage avec un état périmé, risque d'écrasement | important | corrigé : redémarrage seulement si le compte change ; test e2e reproduit sur l'ancien code |
+| S3 | Le partage transmettait besoins d'accessibilité, régimes, budget et groupe | important | corrigé : seul le mode de transport est transmis et recopié |
+| S4 | Course sur la modération : publication d'un texte non relu | important | corrigé : décision liée à la version relue (409 sinon) |
+| S5 | XP de missions par redéclaration d'un lieu déjà visité | mineur | corrigé : seules les premières visites comptent (test unitaire) ; la mission « préparer une sortie » reste répétable, voir KNOWN_LIMITATIONS |
+| S6 | Un refus d'ami pouvait être effacé par le demandeur | mineur | corrigé |
+| S7 | Énumération des pseudonymes via les blocages | mineur | corrigé : réponse identique et limite de débit |
+| S8 | Corrections administratives non idempotentes ; course sur le solde | mineur | corrigé : identifiant de correction et verrou sur le profil |
+| S9 | Limiteur remis à zéro par un afflux de clés | mineur | corrigé : espaces de clés séparés, éviction LRU (tests unitaires) |
+| S10 | Missions et barème présents seulement dans le seed de démo | mineur | corrigé : migration `20260925000400_reference_data.sql` |
+| S11 | Pages de partage conservées par le service worker après révocation | mineur | corrigé : partage, admin et connexion jamais mis en cache ; cache borné. Non couvert par un test automatisé |
+
+**Interface et parcours.** Tests e2e dans `e2e/demo-journey.spec.ts`, sauf indication contraire.
+
+| # | Constat | Suite |
+|---|---|---|
+| U1 | La barre mobile masquait le bas de la carte, la mention « pas une carte routière » et l'attribution | corrigé, avec test e2e |
+| U2 | Surprends-nous échouait à Annecy avec les réglages par défaut | corrigé : essai de chaque point de départ ; test unitaire sur les 4 destinations |
+| U3 | Nombres de parcelles et de lieux visités incohérents entre écrans | corrigé : les simulations sont exclues partout et signalées sur la carte |
+| U4 | Date, heure, durée, transport et destination non modifiables | corrigé ; la destination reste modifiable tant qu'il n'y a pas d'étape |
+| U5 | « Modifier les critères » effaçait les choix | corrigé, avec test e2e |
+| U6 | Plantage sur une destination invalide ; pas de pages d'erreur en français | corrigé : `error.tsx`, `global-error.tsx`, `not-found.tsx` en français. `/lieux/<inconnu>` reste une 404 « douce » (voir limites) |
+| U7–U9 | Formulations inexactes (« aucun lieu inventé », langues, missions) | reformulées |
+| U10 | Budget par défaut (60 €) absent des choix de l'accueil | corrigé |
+| U11 | Contraste des badges non obtenus | corrigé (plus d'opacité sur le texte) |
+| U12 | Pseudonyme périmé après effacement | corrigé |
+| U13 | Titre d'excursion impossible à vider | corrigé (nom par défaut appliqué à l'enregistrement) |
+| U14 | Modifications d'excursion perdues sans avertissement | corrigé : confirmation avant de quitter par un lien ou en fermant l'onglet ; pas de test automatisé |
+| U15 | Petits défauts (paramètres invalides, `h1` de la carte, appel admin en démo, message de géolocalisation) | corrigés ; bandeau démo tronqué sur mobile laissé en l'état |
+
+**Hypothèses de la revue, non vérifiées et non traitées :**
+
+- focus perdu après la fermeture de l'animation de révélation ;
+- flèches du clavier non gérées dans les groupes de boutons radio personnalisés.
+
+Elles figurent dans KNOWN_LIMITATIONS.
+
+## Défauts trouvés par les vérifications elles-mêmes
+
+- `npm run test:db` pointait vers un fichier de configuration inexistant (`.ts` au lieu de `.mts`), ce qui aurait fait échouer la CI. Corrigé.
+- Trois scripts npm renvoyaient vers des fichiers absents. Retirés.
+- Le test e2e d'avis dépendait de l'état de la base. Il utilise désormais un texte unique par exécution.
+- Captures : un artefact sous les destinations de la carte, des contrastes insuffisants en thème nuit (grille, rivières, passeport), un débordement des boutons de la fiche dans le panneau latéral et un logo tronqué dans le rail. Tous corrigés, captures régénérées.
+
+## Non livré
+
+Voir `docs/KNOWN_LIMITATIONS.md` : défis amicaux, mode Duo, notifications, cloud Supabase, SMTP, CI, catalogue vérifié.
+
+## Prochaines étapes (décisions du porteur)
+
+1. Vérifier ou remplacer le catalogue (HANDOVER § 4).
+2. Créer le projet Supabase hébergé, configurer SMTP, puis déployer.
+3. Lancer la CI sur GitHub.
+4. Faire valider juridiquement la confidentialité, les CGU et la disponibilité du nom.
