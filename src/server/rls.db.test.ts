@@ -81,7 +81,11 @@ describe("isolation entre comptes", () => {
     await asUser(bob, async (c) => {
       expect((await c.query(`select * from public.collections where id = $1`, [aliceCollection])).rowCount).toBe(0);
       expect((await c.query(`select * from public.collection_items where collection_id = $1`, [aliceCollection])).rowCount).toBe(0);
-      expect((await c.query(`select * from public.excursions where id = $1`, [aliceExcursion])).rowCount).toBe(0);
+      // Colonnes explicites : l'identifiant du propriétaire n'est plus lisible (migration Duo).
+      expect((await c.query(`select id, title from public.excursions where id = $1`, [aliceExcursion])).rowCount).toBe(0);
+    });
+    await asUser(bob, async (c) => {
+      expect(await pgErrorCode(c.query(`select * from public.excursions`))).toBe("42501");
     });
   });
 

@@ -63,6 +63,8 @@ export const ExcursionSchema = SurpriseRequestSchema.omit({ seed: true }).extend
   origin: z.enum(["surprise", "manual", "copy"]),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Mode connecté : version en base, pour ne jamais écraser une modification de l'autre personne (Duo). */
+  version: z.number().int().positive().optional(),
 });
 export type Excursion = z.infer<typeof ExcursionSchema>;
 

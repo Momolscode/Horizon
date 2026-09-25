@@ -38,7 +38,7 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 2. Projet Supabase hébergé, SMTP, déploiement, CI exécutée sur GitHub.
 3. Validation juridique : confidentialité, CGU, mentions légales ; vérification de la disponibilité du nom.
 4. Tests avec de vrais utilisateurs. Aucun n'a eu lieu.
-5. Fonctions non livrées : défis amicaux, mode Duo, notifications, applications natives, paiements ou partenaires.
+5. Fonctions non livrées : défis amicaux, notifications, applications natives, référencement élargi (conçu, voir DECISIONS D-017), paiements ou partenaires. Le Mode Duo est livré, mais testé seulement sur la pile locale.
 
 ## 5. Risques connus
 

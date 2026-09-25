@@ -1,5 +1,6 @@
 import "server-only";
 import type { PoolClient } from "pg";
+import { endDuosBetween } from "./duo";
 
 export class SocialError extends Error {
   constructor(
@@ -55,10 +56,12 @@ export async function removeFriendship(client: PoolClient, userId: string, frien
   const res = await client.query(
     `delete from public.friendships
       where id = $1 and (($2 = addressee_id) or ($2 = requester_id and status <> 'declined'))
-      returning id`,
+      returning requester_id, addressee_id`,
     [friendshipId, userId],
   );
   if (res.rowCount === 0) throw new SocialError("Relation introuvable.", 404);
+  // Plus amis : les excursions Duo entre les deux prennent fin (l'accès est déjà coupé par la RLS).
+  await endDuosBetween(client, String(res.rows[0].requester_id), String(res.rows[0].addressee_id));
 }
 
 /**
@@ -71,6 +74,7 @@ export async function blockUser(client: PoolClient, userId: string, pseudonym: s
   if (target === userId) throw new SocialError("Vous ne pouvez pas vous bloquer vous-même.", 400);
   await client.query(`insert into public.blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, [userId, target]);
   await client.query(`delete from public.friendships where least(requester_id, addressee_id) = least($1::uuid, $2::uuid) and greatest(requester_id, addressee_id) = greatest($1::uuid, $2::uuid)`, [userId, target]);
+  await endDuosBetween(client, userId, target);
 }
 
 export async function unblockUser(client: PoolClient, userId: string, pseudonym: string) {

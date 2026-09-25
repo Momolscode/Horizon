@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, CloudOff, List, Map as MapIcon, Plus, RefreshCw, Replace, Save, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp, CloudOff, List, Map as MapIcon, Plus, RefreshCw, Replace, Save, Trash2, TriangleAlert, Users } from "lucide-react";
 import type { Excursion, SurpriseRequest } from "@/modules/excursions/types";
 import { PARTY_LABELS, TRANSPORTS, TRANSPORT_LABELS, type Transport } from "@/modules/excursions/types";
 import { scheduleExcursion, stepIssues, DEFAULT_VISIT_MINUTES } from "@/modules/excursions/schedule";
@@ -29,6 +29,36 @@ function newId(): string {
 }
 
 const DURATION_CHOICES = [90, 120, 180, 240, 300, 360, 480, 600, 720];
+
+function TogetherControl({
+  placeId,
+  placeName,
+  together,
+}: {
+  placeId: string;
+  placeName: string;
+  together: { partner: string; statusOf: (placeId: string) => "none" | "pending" | "accepted" | "declined" | "expired"; onDeclare: (placeId: string) => void };
+}) {
+  const status = together.statusOf(placeId);
+  if (status === "none") {
+    return (
+      <button type="button" className="btn btn-explore min-h-10 px-3 text-sm" onClick={() => together.onDeclare(placeId)} aria-label={`Nous y étions, avec ${together.partner} : ${placeName}`}>
+        <Users size={16} aria-hidden="true" /> Nous y étions
+      </button>
+    );
+  }
+  const label = {
+    pending: `Visite déclarée · en attente de ${together.partner}`,
+    accepted: `Visite confirmée par ${together.partner}`,
+    declined: `${together.partner} n'a pas confirmé`,
+    expired: "Demande expirée",
+  }[status];
+  return (
+    <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-surface-2 px-3 text-xs font-bold text-ink-2">
+      <Users size={14} aria-hidden="true" /> {label}
+    </span>
+  );
+}
 
 function asRequest(e: Excursion): SurpriseRequest {
   return { ...e, seed: e.seed ?? 0 };
@@ -75,6 +105,7 @@ export function ExcursionEditor({
   onSave,
   onReroll,
   onDelete,
+  together,
 }: {
   excursion: Excursion;
   saved: boolean;
@@ -84,6 +115,12 @@ export function ExcursionEditor({
   onSave: () => void;
   onReroll?: () => void;
   onDelete?: () => void;
+  /** Mode Duo : déclarer une étape « pour nous deux » et suivre la confirmation de l'autre. */
+  together?: {
+    partner: string;
+    statusOf: (placeId: string) => "none" | "pending" | "accepted" | "declined" | "expired";
+    onDeclare: (placeId: string) => void;
+  };
 }) {
   const { catalog, state } = useHorizon();
   const theme = useResolvedTheme();
@@ -352,6 +389,7 @@ export function ExcursionEditor({
                   >
                     <Trash2 size={16} aria-hidden="true" />
                   </button>
+                  {together ? <TogetherControl placeId={s.place.id} placeName={s.place.name} together={together} /> : null}
                 </div>
               </article>
             </li>

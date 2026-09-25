@@ -6,14 +6,15 @@ Application web mobile-first (PWA) de découverte et d'exploration :
 
 - une carte personnelle qui se révèle au fil des visites (parcelles H3) ;
 - « Surprends-nous », qui compose une sortie de 3 à 5 étapes ;
-- un passeport d'exploration partageable.
+- un passeport d'exploration partageable ;
+- le Mode Duo (compte requis) : préparer une excursion à deux avec un ami et déclarer une visite pour les deux, confirmée par l'autre.
 
 Nom provisoire : sa disponibilité et celle du domaine n'ont pas été vérifiées. Dépôt privé, aucune licence open source accordée.
 
 > **État :** prototype fonctionnel.
 >
 > - Le mode démonstration est livré et testé de bout en bout.
-> - Le mode connecté (comptes, base PostgreSQL, amis, partage, avis modérés, missions, administration) est testé sur une pile Supabase **locale**, pas sur un projet hébergé.
+> - Le mode connecté (comptes, base PostgreSQL, amis, Mode Duo, partage, avis modérés, missions, administration) est testé sur une pile Supabase **locale**, pas sur un projet hébergé.
 >
 > Chaque vérification porte un statut (RÉUSSIE, ÉCHOUÉE ou NON EXÉCUTÉE) dans `docs/STATUS.md`. Les limites figurent dans `docs/KNOWN_LIMITATIONS.md`.
 

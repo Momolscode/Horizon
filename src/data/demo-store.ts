@@ -182,6 +182,18 @@ export class DemoStore implements HorizonStore {
     return this.run(() => this.write({ ...this.state, excursions: this.state.excursions.filter((e) => e.id !== excursionId) }));
   }
 
+  refreshExcursions() {
+    return Promise.resolve(this.state);
+  }
+
+  declareTogether(): Promise<never> {
+    return Promise.reject(new StoreError("Le Mode Duo nécessite le mode connecté : indisponible en démonstration.", "unavailable"));
+  }
+
+  respondDuoVisit(): Promise<never> {
+    return Promise.reject(new StoreError("Le Mode Duo nécessite le mode connecté : indisponible en démonstration.", "unavailable"));
+  }
+
   declareVisit(request: VisitRequest) {
     return this.run(() => {
       const outcome = planVisit(request, this.state.progression, this.deps.catalog, { now: this.now(), newId: this.newId, mode: "demo" });

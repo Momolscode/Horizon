@@ -27,12 +27,11 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
   }
   hits.push(now);
   buckets.set(key, hits);
-  if (buckets.size > MAX_KEYS_PER_SPACE) {
-    for (const [k, v] of buckets) if (v.every((t) => now - t >= windowMs)) buckets.delete(k);
-    for (const k of buckets.keys()) {
-      if (buckets.size <= MAX_KEYS_PER_SPACE) break;
-      buckets.delete(k);
-    }
+  // Éviction en temps constant : les premières clés de la Map sont les moins récemment
+  // utilisées (donc, en pratique, les expirées). Pas de parcours complet à chaque requête.
+  for (const k of buckets.keys()) {
+    if (buckets.size <= MAX_KEYS_PER_SPACE) break;
+    buckets.delete(k);
   }
   return { allowed: true, retryAfterS: 0 };
 }

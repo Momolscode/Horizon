@@ -107,9 +107,22 @@ Prérequis : voir HANDOVER § 3. Parcours couverts par `npm run test:e2e:connect
 - amis ;
 - partage révocable ;
 - mission récompensée une seule fois ;
+- Mode Duo : invitation, co-édition, conflit sans écrasement, visite pour deux confirmée ;
 - avis modéré, publié par un administrateur et journalisé.
 
-Aucune capture du mode connecté n'est fournie ici.
+### Mode Duo (captures réelles, mode connecté, mobile)
+
+Captures produites par `DUO_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-duo.spec.ts`, sous `next dev` : le bouton des outils Next.js est visible en bas à gauche. Les pseudonymes sont générés automatiquement.
+
+| Invitation envoyée | Invitation reçue | Conflit sans écrasement |
+|---|---|---|
+| ![Invitation envoyée](screenshots/duo-01-invitation-envoyee.jpg) | ![Invitation reçue](screenshots/duo-02-invitation-recue.jpg) | ![Conflit](screenshots/duo-03-conflit.jpg) |
+
+| « Nous y étions » | Visite à confirmer |
+|---|---|
+| ![Nous y étions](screenshots/duo-04-nous-y-etions.jpg) | ![Visite à confirmer](screenshots/duo-05-visite-a-confirmer.jpg) |
+
+Les autres écrans du mode connecté n'ont pas de captures.
 
 ---
 

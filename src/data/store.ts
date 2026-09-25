@@ -35,12 +35,20 @@ export interface HorizonStore {
   claimMission(missionId: string): Promise<{ state: UserState; xpGained: number }>;
   /** Démo uniquement : efface toute la progression locale. */
   reset(): Promise<UserState>;
+  /** Relit les excursions (Mode Duo : modifications de l'autre personne). Sans effet en démo. */
+  refreshExcursions(): Promise<UserState>;
+  /** Mode Duo : « nous y étions » sur une étape (connecté uniquement). */
+  declareTogether(excursionId: string, placeId: string): Promise<{ state: UserState; outcome: VisitOutcome; requestCreated: boolean }>;
+  /** Mode Duo : confirmer ou refuser une visite déclarée pour deux (connecté uniquement). */
+  respondDuoVisit(requestId: string, accept: boolean): Promise<{ state: UserState; outcome: VisitOutcome | null }>;
 }
 
 export class StoreError extends Error {
   constructor(
     message: string,
     readonly code: "validation" | "not_found" | "network" | "unauthorized" | "conflict" | "unavailable" | "rate_limited",
+    /** État à jour à afficher malgré l'échec (ex. version récente après un conflit Duo). */
+    readonly state?: UserState,
   ) {
     super(message);
   }

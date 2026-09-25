@@ -107,7 +107,7 @@ Chaque recommandation est expliquée et ne se limite pas aux lieux populaires. T
   - protections : blocage, signalement et modération avant toute publication publique ;
   - profils et historique privés par défaut, avec choix explicite entre privé, amis et public ;
   - pas de carte des déplacements en temps réel.
-- **Partage d'excursions :** en lecture seule, révocable, copiable dans son propre compte. Le mode Duo collaboratif vient après la sécurisation des invitations. Rejoindre une excursion ne valide pas la visite des autres.
+- **Partage d'excursions :** en lecture seule, révocable, copiable dans son propre compte. Le Mode Duo (DECISIONS D-016) permet à deux amis de co-éditer une excursion. Une visite déclarée « pour nous deux » n'est créditée à l'autre qu'après sa confirmation.
 - **Paramètres :** thème, apparence de la carte, langue, unités, préférences, notifications, localisation, visibilité, synchronisation, export, suppression, assistance. L'application indique ce qui est local et ce qui est synchronisé.
 
 ### 5.6 Administration, mesure et monétisation

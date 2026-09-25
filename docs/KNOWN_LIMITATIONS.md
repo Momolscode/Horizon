@@ -73,10 +73,23 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - les groupes de boutons radio personnalisés ne gèrent pas les flèches du clavier (Tab et Entrée fonctionnent).
 - **Bandeau démo sur mobile :** le texte est tronqué (« lieux non vérifiés, re… »). Chaque lieu ou profil fictif porte néanmoins sa propre étiquette.
 
-## 8. Fonctions non livrées
+## 8. Mode Duo
+
+- **Portée du test :** vérifié sur la pile Supabase locale uniquement, comme tout le mode connecté.
+- **Pas de temps réel :** les modifications de l'autre apparaissent à l'ouverture de l'excursion ou au retour sur l'onglet, pas pendant la saisie.
+- **Conflit :** si les deux enregistrent l'un après l'autre à partir de la même version, le second est prévenu et voit la version à jour. Ses propres modifications non enregistrées sont abandonnées ; il n'y a pas de fusion.
+- **Pas de notifications :** invitations et visites à confirmer s'affichent en tête de l'onglet Excursions.
+- **Une seule personne invitée par excursion.**
+- **« Nous y étions » :**
+  - disponible seulement sur une excursion enregistrée, sans modification en cours ;
+  - date de visite : le jour même, dans le fuseau de la destination ;
+  - une seule demande par étape et par personne, même si elle a été refusée ou a expiré.
+- **Visite confirmée :** elle reste une visite déclarée, donc falsifiable comme les autres (voir § 3). Les deux amis peuvent s'entendre pour se créditer mutuellement, dans les limites habituelles (plafond, une récompense par lieu).
+- **Démo :** le Mode Duo y est présenté mais indisponible.
+
+## 9. Fonctions non livrées
 
 - Défis amicaux et comparaisons avancées (seule une comparaison simple existe).
-- Mode Duo (excursion collaborative).
 - Notifications (push, e-mail).
 - Cartes hors ligne avancées : le service worker ne conserve que les pages visitées et le fond embarqué.
 - Applications natives.
@@ -84,14 +97,14 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - Traduction : interface en français uniquement.
 - Import d'un catalogue vérifié : procédure décrite dans HANDOVER, pas d'outil.
 
-## 9. Qualité et outillage
+## 10. Qualité et outillage
 
 - **CI GitHub Actions** fournie, jamais exécutée sur GitHub.
 - **Tests e2e :** exécutés sous Chromium headless uniquement (rendu logiciel SwiftShader). Firefox, Safari et les vrais appareils mobiles n'ont pas été testés.
 - **Accessibilité :** rôles ARIA, focus, contrastes vérifiés visuellement, `prefers-reduced-motion` respecté. Pas d'audit automatisé (axe) ni de test avec lecteur d'écran.
 - **Versions :** ESLint 9 en fin de maintenance ; TypeScript 5.9, alors que 7 existe (voir DECISIONS D-001).
 
-## 10. Juridique et commercial
+## 11. Juridique et commercial
 
 - Nom « HORIZON » et domaine : disponibilité non vérifiée.
 - Politique de confidentialité, CGU et mentions légales : non rédigées ; validation juridique nécessaire.

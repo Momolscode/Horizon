@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { CatalogIndex } from "@/modules/catalog/catalog";
 import type { VisitOutcome, VisitRequest } from "@/modules/progression/engine";
 import type { Excursion } from "@/modules/excursions/types";
-import type { HorizonStore, StoreStatus } from "@/data/store";
+import { StoreError, type HorizonStore, type StoreStatus } from "@/data/store";
 import type { ErrorReport, Settings, UserState } from "@/data/user-state";
 
 export type Toast = { id: number; message: string; tone: "info" | "success" | "error" };
@@ -31,13 +31,18 @@ export type HorizonContextValue = {
     renameCollection: (id: string, name: string) => Promise<boolean>;
     deleteCollection: (id: string) => Promise<boolean>;
     togglePlaceInCollection: (collectionId: string, placeId: string) => Promise<boolean>;
-    saveExcursion: (excursion: Excursion) => Promise<boolean>;
+    /** Renvoie l'excursion telle qu'enregistrée (nouvelle version), ou null en cas d'échec. */
+    saveExcursion: (excursion: Excursion) => Promise<Excursion | null>;
     deleteExcursion: (id: string) => Promise<boolean>;
     declareVisit: (request: VisitRequest) => Promise<VisitOutcome | null>;
     reportError: (report: Omit<ErrorReport, "id" | "createdAt" | "status">) => Promise<boolean>;
     markSeen: (placeId: string) => Promise<void>;
     claimMission: (missionId: string) => Promise<number | null>;
     reset: () => Promise<boolean>;
+    /** Relit les excursions sans bloquer l'interface (retour sur l'onglet, Mode Duo). */
+    refreshExcursions: () => Promise<void>;
+    declareTogether: (excursionId: string, placeId: string) => Promise<{ outcome: VisitOutcome; requestCreated: boolean } | null>;
+    respondDuoVisit: (requestId: string, accept: boolean, placeId: string) => Promise<boolean>;
   };
 };
 
@@ -118,6 +123,8 @@ export function HorizonProvider({
         setStatus(store.status());
         return result;
       } catch (error) {
+        // Un échec peut s'accompagner d'un état plus récent (conflit Duo) : on l'affiche.
+        if (error instanceof StoreError && error.state) setState(error.state);
         toast(error instanceof Error ? error.message : "Une erreur est survenue.", "error");
         return null;
       } finally {
@@ -144,7 +151,12 @@ export function HorizonProvider({
       deleteCollection: wrap((id) => store.deleteCollection(id)),
       togglePlaceInCollection: wrap((c, p) => store.togglePlaceInCollection(c, p)),
       // Un titre laissé vide reçoit un nom par défaut au moment d'enregistrer.
-      saveExcursion: wrap((e) => store.saveExcursion({ ...e, title: e.title.trim() || "Excursion" })),
+      saveExcursion: async (e: Excursion) => {
+        const next = await guard(() => store.saveExcursion({ ...e, title: e.title.trim() || "Excursion" }));
+        if (!next) return null;
+        setState(next);
+        return next.excursions.find((x) => x.id === e.id) ?? null;
+      },
       deleteExcursion: wrap((id) => store.deleteExcursion(id)),
       reportError: wrap((r) => store.reportError(r)),
       reset: wrap(() => store.reset()),
@@ -161,6 +173,28 @@ export function HorizonProvider({
         if (!result) return null;
         setState(result.state);
         return result.xpGained;
+      },
+      refreshExcursions: async () => {
+        if (requiresAccount) return;
+        try {
+          setState(await store.refreshExcursions());
+        } catch {
+          // Non bloquant : on réessaiera au prochain retour sur la page.
+        }
+      },
+      declareTogether: async (excursionId: string, placeId: string) => {
+        const result = await guard(() => store.declareTogether(excursionId, placeId));
+        if (!result) return null;
+        setState(result.state);
+        if (!result.outcome.duplicate) setReveal({ id: Date.now(), placeId, outcome: result.outcome });
+        return { outcome: result.outcome, requestCreated: result.requestCreated };
+      },
+      respondDuoVisit: async (requestId: string, accept: boolean, placeId: string) => {
+        const result = await guard(() => store.respondDuoVisit(requestId, accept));
+        if (!result) return false;
+        setState(result.state);
+        if (result.outcome && !result.outcome.duplicate) setReveal({ id: Date.now(), placeId, outcome: result.outcome });
+        return true;
       },
       declareVisit: async (request: VisitRequest) => {
         const result = await guard(() => store.declareVisit(request));

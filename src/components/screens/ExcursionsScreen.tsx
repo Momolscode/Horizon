@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Plus, Route, Wand2 } from "lucide-react";
+import { CalendarDays, Plus, Route, Users, Wand2 } from "lucide-react";
 import { scheduleExcursion } from "@/modules/excursions/schedule";
 import { formatLocalDate } from "@/modules/shared/time";
 import { useHorizon } from "../providers/HorizonProvider";
 import { PlaceArt } from "../PlaceArt";
+import { DuoInbox } from "../duo/DuoInbox";
+import { useDuo } from "../duo/useDuo";
 
 export function ExcursionsScreen() {
   const { state, catalog } = useHorizon();
+  const duo = useDuo();
   const excursions = [...state.excursions].sort((a, b) => a.date.localeCompare(b.date));
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
       <p className="eyebrow">Mes excursions</p>
       <h1 className="text-4xl font-semibold">Excursions</h1>
       <p className="mt-2 text-ink-2">Transformez vos idées en sortie concrète : étapes, horaires, budget et carte.</p>
+      {/* Pas encore de notifications : les invitations et confirmations Duo s'affichent ici, en tête. */}
+      {duo.enabled ? <DuoInbox overview={duo.overview} onChanged={duo.refresh} call={duo.call} /> : null}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Link href="/excursions/nouvelle" className="card grain relative flex min-h-36 flex-col justify-end overflow-hidden bg-ink p-5 text-bg">
@@ -57,6 +62,16 @@ export function ExcursionsScreen() {
                       {e.steps.length} étape(s)
                       {schedule.steps.some((s) => s.hours === "closed") ? " · conflit horaire à corriger" : ""}
                     </p>
+                    {(() => {
+                      const m = duo.overview?.memberships.find((x) => x.excursionId === e.id);
+                      if (!m) return null;
+                      return (
+                        <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-soft px-2 py-0.5 text-[11px] font-bold text-green-ink">
+                          <Users size={12} aria-hidden="true" />
+                          {m.status === "pending" ? `Invitation envoyée à ${m.partnerPseudonym}` : m.role === "guest" ? `Duo · excursion de ${m.partnerPseudonym}` : `Duo avec ${m.partnerPseudonym}`}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </Link>
               </li>

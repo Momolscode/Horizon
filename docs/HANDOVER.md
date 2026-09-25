@@ -40,7 +40,9 @@ scripts/                     Fond de carte, icônes, seed, admin, captures, e2e 
 Chemins d'écriture en mode connecté :
 
 - **Navigateur → Supabase (supabase-js, sous RLS) :** favoris, collections, excursions, profil, avis, signalements. Seules les données de l'utilisateur sont accessibles.
-- **Navigateur → routes serveur Next.js → PostgreSQL (`DATABASE_URL`, transaction) :** visites et progression, missions, partage, amis et blocages, événements de mesure, liste d'attente, suppression de compte, administration.
+- **Navigateur → routes serveur Next.js → PostgreSQL (`DATABASE_URL`, transaction) :** visites et progression, missions, partage, amis et blocages, Mode Duo (invitations, visites pour deux), événements de mesure, liste d'attente, suppression de compte, administration.
+
+Mode Duo : la personne invitée lit et modifie l'excursion directement sous RLS (fonction `is_duo_guest`). Chaque modification incrémente `excursions.version` ; le navigateur n'enregistre que si la version n'a pas changé, sinon il affiche la version à jour. Le navigateur ne lit pas `user_id` ni `updated_by` des excursions.
 
 Chaque route mutante :
 
@@ -136,6 +138,8 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 | Pseudonyme, visibilité, consentement mesure | `profiles` | profil, amis | cascade |
 | Favoris, collections, excursions | tables du même nom | fonctions de l'app | cascade |
 | Visites (lieu, date déclarée, statut, note, distance et précision du contrôle ponctuel), parcelles, XP | `visits`, `parcels`, `xp_ledger`, `badges_awarded` | progression | cascade |
+| Invitations Duo (excursion, personne invitée, statut) | `excursion_members` | co-édition entre amis | cascade (suppression du compte ou de l'excursion) ; supprimées à la fin de l'amitié ou au blocage |
+| Visites pour deux (lieu, date, auteur, destinataire, statut) | `duo_visit_requests` | confirmation par l'autre personne | cascade ; expirées à la fin de l'amitié ou au blocage |
 | Événements de mesure | `events` | mesure d'usage, **uniquement si consentement** (désactivé par défaut) | cascade |
 | Liste d'attente | `waitlist` (e-mail, date de consentement, empreinte salée d'IP facultative) | contact bêta | manuelle (aucune interface) |
 | Avis et signalements d'avis | `reviews`, `review_reports` | modération | cascade |

@@ -8,6 +8,9 @@ import { TripPreferencesSchema } from "@/modules/excursions/types";
 
 type Row = Record<string, unknown>;
 
+/** Colonnes lisibles par le navigateur (jamais l'identifiant du propriétaire ni du dernier auteur). */
+const EXCURSION_COLUMNS = "id, title, destination_id, date, start_time, duration_minutes, preferences, seed, origin, steps, created_at, updated_at, version";
+
 function mapExcursion(r: Row): Excursion {
   const prefs = (r.preferences ?? {}) as Partial<Excursion>;
   return {
@@ -28,6 +31,7 @@ function mapExcursion(r: Row): Excursion {
     steps: (r.steps as Excursion["steps"]) ?? [],
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
+    version: Number(r.version ?? 1),
   };
 }
 
@@ -98,7 +102,7 @@ export class ConnectedStore implements HorizonStore {
       this.supabase.from("profiles").select("*").eq("id", uid).single(),
       this.supabase.from("collections").select("*").order("created_at"),
       this.supabase.from("collection_items").select("*"),
-      this.supabase.from("excursions").select("*").order("date"),
+      this.supabase.from("excursions").select(EXCURSION_COLUMNS).order("date"),
       this.supabase.from("visits").select("*").order("created_at"),
       this.supabase.from("parcels").select("*"),
       this.supabase.from("xp_ledger").select("*").order("created_at"),
@@ -286,23 +290,84 @@ export class ConnectedStore implements HorizonStore {
       origin: excursion.origin,
       steps: excursion.steps,
     };
-    const exists = this.state.excursions.some((e) => e.id === excursion.id);
+    const current = this.state.excursions.find((e) => e.id === excursion.id);
     // Colonnes explicites : l'identifiant n'est jamais modifiable, les dates sont fixées par la base.
     const { id, ...updatable } = row;
-    const { data, error } = exists
-      ? await this.supabase.from("excursions").update(updatable).eq("id", id).select().single()
-      : await this.supabase.from("excursions").insert(row).select().single();
+    if (!current) {
+      const { data, error } = await this.supabase.from("excursions").insert(row).select(EXCURSION_COLUMNS).single();
+      if (error) this.fail(error, "Enregistrement de l'excursion impossible");
+      this.track("excursion_created", { origin: excursion.origin, steps: excursion.steps.length });
+      this.state = { ...this.state, excursions: [...this.state.excursions, mapExcursion(data as Row)] };
+      return this.state;
+    }
+    // Mode Duo : on n'enregistre que si personne n'a modifié l'excursion depuis sa lecture.
+    const expected = excursion.version ?? current.version ?? 1;
+    const { data, error } = await this.supabase.from("excursions").update(updatable).eq("id", id).eq("version", expected).select(EXCURSION_COLUMNS).maybeSingle();
     if (error) this.fail(error, "Enregistrement de l'excursion impossible");
-    if (!exists) this.track("excursion_created", { origin: excursion.origin, steps: excursion.steps.length });
+    if (!data) {
+      const fresh = await this.supabase.from("excursions").select(EXCURSION_COLUMNS).eq("id", id).maybeSingle();
+      if (fresh.data) {
+        const latest = mapExcursion(fresh.data as Row);
+        this.state = { ...this.state, excursions: this.state.excursions.map((e) => (e.id === latest.id ? latest : e)) };
+        throw new StoreError(
+          "L'excursion a été modifiée entre-temps par l'autre personne : voici la version à jour. Vos modifications n'ont pas été enregistrées.",
+          "conflict",
+          this.state,
+        );
+      }
+      this.state = { ...this.state, excursions: this.state.excursions.filter((e) => e.id !== id) };
+      throw new StoreError("Cette excursion ne vous est plus accessible.", "not_found", this.state);
+    }
     const saved = mapExcursion(data as Row);
-    this.state = { ...this.state, excursions: exists ? this.state.excursions.map((e) => (e.id === saved.id ? saved : e)) : [...this.state.excursions, saved] };
+    this.state = { ...this.state, excursions: this.state.excursions.map((e) => (e.id === saved.id ? saved : e)) };
     return this.state;
+  }
+
+  async refreshExcursions() {
+    if (!this.userId) return this.state;
+    const { data, error } = await this.supabase.from("excursions").select(EXCURSION_COLUMNS).order("date");
+    if (error) this.fail(error, "Actualisation des excursions impossible");
+    this.state = { ...this.state, excursions: ((data ?? []) as Row[]).map(mapExcursion) };
+    return this.state;
+  }
+
+  private async postJson(path: string, method: "POST" | "PATCH", body: unknown) {
+    const res = await this.fetchImpl(path, {
+      method,
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    }).catch(() => null);
+    if (!res) throw new StoreError("Connexion impossible : rien n'a été enregistré. Réessayez (aucun double crédit possible).", "network");
+    const payload = (await res.json().catch(() => ({}))) as { outcome?: VisitOutcome; snapshot?: ProgressionSnapshot; requestCreated?: boolean; kind?: string; message?: string };
+    if (res.status === 401) throw new StoreError("Session expirée : reconnectez-vous.", "unauthorized");
+    if (res.status === 429) throw new StoreError(payload.message ?? "Trop de visites en peu de temps : réessayez plus tard.", "rate_limited");
+    if (!res.ok) throw new StoreError(payload.message ?? "Le serveur n'a pas pu enregistrer l'opération.", res.status === 404 || res.status === 410 ? "not_found" : "validation");
+    return payload;
+  }
+
+  async declareTogether(excursionId: string, placeId: string) {
+    this.requireUser();
+    const payload = await this.postJson("/api/duo/visites", "POST", { excursionId, placeId });
+    if (!payload.outcome || !payload.snapshot) throw new StoreError("Réponse inattendue du serveur.", "unavailable");
+    this.state = { ...this.state, progression: payload.snapshot };
+    if (!payload.outcome.duplicate) this.track("visit_declared", { duo: true });
+    return { state: this.state, outcome: payload.outcome, requestCreated: Boolean(payload.requestCreated) };
+  }
+
+  async respondDuoVisit(requestId: string, accept: boolean) {
+    this.requireUser();
+    const payload = await this.postJson(`/api/duo/visites/${encodeURIComponent(requestId)}`, "PATCH", { action: accept ? "accept" : "decline" });
+    if (payload.kind === "accepted" && payload.snapshot) this.state = { ...this.state, progression: payload.snapshot };
+    return { state: this.state, outcome: payload.kind === "accepted" ? (payload.outcome ?? null) : null };
   }
 
   async deleteExcursion(excursionId: string) {
     this.requireUser();
-    const { error } = await this.supabase.from("excursions").delete().eq("id", excursionId);
+    const { data, error } = await this.supabase.from("excursions").delete().eq("id", excursionId).select("id");
     if (error) this.fail(error, "Suppression impossible");
+    // Sous RLS, une suppression refusée (personne invitée en Duo) ne renvoie aucune ligne.
+    if (!data || data.length === 0) throw new StoreError("Seule la personne qui a créé l'excursion peut la supprimer.", "unauthorized");
     this.state = { ...this.state, excursions: this.state.excursions.filter((e) => e.id !== excursionId) };
     return this.state;
   }

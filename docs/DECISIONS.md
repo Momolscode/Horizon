@@ -93,7 +93,7 @@ Format court : contexte → décision → conséquences. Les décisions réversi
 - **Décision :** accepter une 404 « douce » : page « Page introuvable » en français, avec `noindex`, mais statut 200. Les adresses hors application renvoient un vrai 404.
 - **Alternative écartée pour l'instant :** vérifier l'identifiant dans `proxy.ts` avant le rendu. En mode connecté, il faudrait lire le catalogue en base à chaque requête.
 
-## D-016 — Mode Duo : conception validée (non implémentée)
+## D-016 — Mode Duo : conception validée, implémentée
 
 Validée par le porteur le 2026-09-25, lors d'une séance de conception.
 
@@ -113,6 +113,12 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - s'il refuse ou laisse expirer, rien n'est crédité ;
   - aucune position n'est transmise d'un compte à l'autre.
 - **Démo :** le Duo est présenté mais indisponible, comme les amis réels.
+- **Implémentation (migration `20260925000500_duo.sql`) :**
+  - tables `excursion_members` (une ligne par excursion) et `duo_visit_requests`, sans aucun droit client ;
+  - l'accès de l'invité passe par la fonction `is_duo_guest`, qui vérifie invitation acceptée, amitié toujours acceptée et absence de blocage ;
+  - colonnes `version` et `updated_by`, mises à jour par un déclencheur ;
+  - le navigateur ne lit plus `user_id` ni `updated_by` des excursions ;
+  - routes `/api/duo`, `/api/duo/[excursionId]`, `/api/duo/visites`, `/api/duo/visites/[id]`.
 - **Tests requis :**
   - invitation refusée à un non-ami ;
   - suppression interdite à l'invité ;
