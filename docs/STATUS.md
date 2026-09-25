@@ -18,13 +18,14 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 |---|---|---|---|
 | Types | RÉUSSIE | `npm run typecheck` | 0 erreur |
 | Lint (règles React Compiler incluses) | RÉUSSIE | `npm run lint` | 0 erreur, 0 avertissement |
-| Tests unitaires | RÉUSSIE | `npm test` | 13 fichiers, 103 tests |
-| Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 7 fichiers, 62 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale, Mode Duo |
+| Tests unitaires | RÉUSSIE | `npm test` | 14 fichiers, 113 tests |
+| Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 8 fichiers, 69 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale, Mode Duo, référencement ; relancés deux fois de suite sans résidu |
 | Build de production démo | RÉUSSIE | `npm run build:demo` | build Next sans erreur |
 | Parcours e2e démo, mobile 390×844 et ordinateur 1440×900 | RÉUSSIE | `npm run build:demo && npm run test:e2e` | 13 réussis, 1 ignoré volontairement (test propre au mobile, ignoré en projet ordinateur) |
-| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 11 tests sur Supabase local + `next dev`, dont le parcours Duo complet |
-| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 5 migrations + seed de 40 lieux |
+| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 14 tests sur Supabase local + `next dev`, dont le Duo et le référencement ; suite complète relancée deux fois de suite |
+| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 6 migrations + seed de 40 lieux |
 | Captures réelles, mobile et ordinateur | RÉUSSIE | `node scripts/screenshots.mjs http://localhost:3100 docs/screenshots` | 46 captures du mode démo dans `docs/screenshots/`, examinées une à une |
+| Captures réelles du référencement (connecté, mobile) | RÉUSSIE | `REF_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-referencing.spec.ts` | 4 captures `ref-*.jpg`, sous `next dev` |
 | Captures réelles du Mode Duo (connecté, mobile) | RÉUSSIE | `DUO_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-duo.spec.ts` | 5 captures `duo-*.jpg`, prises sous `next dev` (le bouton des outils Next est visible en bas à gauche) |
 | Revue indépendante (2 agents en lecture seule : sécurité/intégrité, interface/liens) | RÉUSSIE | voir ci-dessous | 11 + 15 constats, traités |
 | CI GitHub Actions | NON EXÉCUTÉE | `.github/workflows/ci.yml` | jamais lancée sur GitHub |
@@ -43,6 +44,7 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 - Mission récompensée une seule fois.
 - Amis : invitation par pseudonyme et acceptation.
 - Avis modéré : invisible avant publication, puis publié par un administrateur et journalisé.
+- Référencement : proposition d'un lieu, modération et publication « proposé par un membre » ; revendication (SIRET + preuve) inactive avant validation ; informations « fournies par l'établissement » ; avis refusé sans visite déclarée ; réponse de l'établissement invisible avant modération.
 - Mode Duo : invitation d'un ami, acceptation, co-édition, conflit d'enregistrement sans écrasement, « nous y étions », puis confirmation par l'autre qui crédite sa visite.
 
 ## Revue finale indépendante : constats et suites
@@ -97,7 +99,7 @@ Elles figurent dans KNOWN_LIMITATIONS.
 
 ## Non livré
 
-Voir `docs/KNOWN_LIMITATIONS.md` : défis amicaux, notifications, référencement élargi (conçu, D-017), cloud Supabase, SMTP, CI, catalogue vérifié.
+Voir `docs/KNOWN_LIMITATIONS.md` : défis amicaux, notifications, offre payante de référencement (souhaitée, non implémentée), cloud Supabase, SMTP, CI, catalogue vérifié.
 
 ## Mode Duo (ajouté après la revue finale)
 
@@ -105,6 +107,19 @@ Voir `docs/KNOWN_LIMITATIONS.md` : défis amicaux, notifications, référencemen
 - Tests : `src/server/duo.db.test.ts` (8 tests : invitation réservée aux amis, accès de l'invité, colonnes masquées, version et conflit, départ et retrait, visite pour deux créditée une seule fois, refus et expiration sans crédit, fin d'amitié et blocage) ; `e2e/connected-duo.spec.ts`.
 - Défaut trouvé pendant l'implémentation : l'éviction du limiteur de débit (correctif S9) parcourait toute la table à chaque requête au-delà de la limite (coût quadratique). Remplacée par une éviction en temps constant ; test existant désormais rapide.
 - Le test de RLS « Bob ne voit pas l'excursion d'Alice » a été adapté : `select *` sur les excursions est désormais refusé au navigateur, puisque l'identifiant du propriétaire n'y est plus lisible.
+
+## Référencement (ajouté après le Mode Duo)
+
+- Conception validée par le porteur (D-017), implémentée sans aucune offre payante.
+- Tests :
+  - `src/modules/catalog/contributions.test.ts` (10) : propositions, doublons, SIRET, informations de l'établissement, et le classement (recherche, filtres, sections, « Surprends-nous ») qui ignore tout statut payant ;
+  - `src/server/referencing.db.test.ts` (7) ;
+  - `e2e/connected-referencing.spec.ts` (3).
+- Défauts trouvés pendant l'implémentation :
+  - le cache du catalogue pouvait être périmé d'une instance à l'autre après une publication (voir D-018) ; corrigé ;
+  - un test e2e supposait exactement 40 lieux en base ; il accepte désormais les lieux publiés par d'autres parcours ;
+  - le premier test base de données du référencement laissait des lieux en base (nettoyage bloqué par les clés étrangères) ; corrigé, les suites sont relancées deux fois sans résidu.
+- Le test e2e d'avis existant a été adapté à la nouvelle règle : déclaration de visite avant l'avis.
 
 ## Prochaines étapes (décisions du porteur)
 

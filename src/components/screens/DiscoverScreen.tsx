@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { LocateFixed, Wand2 } from "lucide-react";
+import { LocateFixed, MapPinPlus, Wand2 } from "lucide-react";
 import { buildSections } from "@/modules/discovery/sections";
 import { DEMO_FRIENDS } from "@/modules/community/demo-community";
 import { VISIT_RULES } from "@/modules/progression/config";
@@ -53,12 +53,17 @@ export function DiscoverScreen() {
             </button>
           ))}
         </div>
-        {destination ? (
-          <Link href={`/excursions/nouvelle?destination=${destination.id}`} className="btn btn-primary mt-4">
-            <Wand2 size={18} aria-hidden="true" /> Surprends-nous à {destination.name}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {destination ? (
+            <Link href={`/excursions/nouvelle?destination=${destination.id}`} className="btn btn-primary">
+              <Wand2 size={18} aria-hidden="true" /> Surprends-nous à {destination.name}
+            </Link>
+          ) : null}
+          <Link href="/lieux/proposer" className="btn btn-ghost">
+            <MapPinPlus size={18} aria-hidden="true" /> Proposer un lieu
           </Link>
-        ) : null}
-        <p className="mt-3 text-xs text-ink-3">Recommandations expliquées, non classées par popularité. Aucun placement commercial dans cette démonstration.</p>
+        </div>
+        <p className="mt-3 text-xs text-ink-3">Recommandations expliquées, non classées par popularité. Aucun placement commercial : aucun lieu ne paie pour être mis en avant.</p>
         <div className="mt-6 max-w-xl">
           <MissionsPanel compact />
         </div>

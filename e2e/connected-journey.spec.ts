@@ -40,7 +40,10 @@ test.describe("parcours de recette — mode connecté (Supabase local)", () => {
     expect(anonymous.status()).toBe(401);
     const catalog = await request.get("/api/catalog");
     expect(catalog.status()).toBe(200);
-    expect((await catalog.json()).places).toHaveLength(40);
+    // 40 lieux du seed, plus ceux publiés par d'autres parcours de test (référencement) : la base locale n'est pas réinitialisée.
+    const places = (await catalog.json()).places as Array<{ id: string }>;
+    expect(places.length).toBeGreaterThanOrEqual(40);
+    expect(places.some((p) => p.id === "lyon-fourviere")).toBe(true);
   });
 
   test("avec compte : favori, excursion, visite, parcelle et passeport persistés en base", async ({ page }) => {

@@ -11,7 +11,8 @@ export type PracticalLine = {
   id: string;
   label: string;
   value: string;
-  certainty: "known" | "estimate" | "unknown";
+  /** "establishment" : valeur fournie par l'établissement (non vérifiée par HORIZON). */
+  certainty: "known" | "estimate" | "establishment" | "unknown";
   note: string | null;
 };
 
@@ -22,7 +23,7 @@ function line<T>(id: string, label: string, known: Known<T> | undefined, format:
     id,
     label,
     value: format(known.value),
-    certainty: known.status,
+    certainty: known.status === "estimate" && known.by === "establishment" ? "establishment" : known.status,
     note: known.status === "estimate" ? known.note : known.checkedAt ? `Vérifié le ${known.checkedAt}` : null,
   };
 }

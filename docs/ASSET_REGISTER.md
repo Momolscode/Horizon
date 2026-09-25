@@ -20,6 +20,7 @@ Ce registre est établi de bonne foi à partir des métadonnées des paquets et 
 | Centres des 4 destinations | Natural Earth (couche des lieux peuplés) | domaine public | |
 | 32 lieux réels du catalogue démo (noms, coordonnées approximatives) | connaissances générales, **non vérifiées** | noms de lieux et coordonnées approximatives : faits non protégés | aucune donnée copiée d'un site tiers ; toutes les valeurs sont `estimate` ou `unknown` |
 | Textes éditoriaux (résumés, « à découvrir », « un peu d'histoire ») | rédigés pour le projet avec l'assistance d'une IA | propriété du porteur | exactitude **non vérifiée** ; à relire avant publication |
+| Lieux proposés par des membres, avis et réponses (mode connecté) | contributions d'utilisateurs | **à définir** : conditions d'utilisation des contributions non rédigées | à régler avant toute ouverture ou cession (droits sur les textes, licence accordée à l'exploitant) |
 | 8 restaurants, amis et avis de démonstration | fictifs, créés pour la démo | propriété du porteur | noms suffixés « (… fictif) » ; profils et avis étiquetés « fictif » |
 | Barèmes, niveaux, badges, missions | conçus pour le projet | propriété du porteur | |
 

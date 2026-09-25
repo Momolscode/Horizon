@@ -7,6 +7,7 @@ Application web mobile-first (PWA) de découverte et d'exploration :
 - une carte personnelle qui se révèle au fil des visites (parcelles H3) ;
 - « Surprends-nous », qui compose une sortie de 3 à 5 étapes ;
 - un passeport d'exploration partageable ;
+- le référencement (compte requis) : proposer un restaurant, un commerce ou une activité (publié après modération), revendiquer la fiche de son établissement, avis après visite déclarée et réponses des établissements ;
 - le Mode Duo (compte requis) : préparer une excursion à deux avec un ami et déclarer une visite pour les deux, confirmée par l'autre.
 
 Nom provisoire : sa disponibilité et celle du domaine n'ont pas été vérifiées. Dépôt privé, aucune licence open source accordée.
@@ -14,7 +15,7 @@ Nom provisoire : sa disponibilité et celle du domaine n'ont pas été vérifié
 > **État :** prototype fonctionnel.
 >
 > - Le mode démonstration est livré et testé de bout en bout.
-> - Le mode connecté (comptes, base PostgreSQL, amis, Mode Duo, partage, avis modérés, missions, administration) est testé sur une pile Supabase **locale**, pas sur un projet hébergé.
+> - Le mode connecté (comptes, base PostgreSQL, amis, Mode Duo, référencement, partage, avis modérés, missions, administration) est testé sur une pile Supabase **locale**, pas sur un projet hébergé.
 >
 > Chaque vérification porte un statut (RÉUSSIE, ÉCHOUÉE ou NON EXÉCUTÉE) dans `docs/STATUS.md`. Les limites figurent dans `docs/KNOWN_LIMITATIONS.md`.
 

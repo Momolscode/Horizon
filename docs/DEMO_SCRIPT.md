@@ -108,6 +108,7 @@ Prérequis : voir HANDOVER § 3. Parcours couverts par `npm run test:e2e:connect
 - partage révocable ;
 - mission récompensée une seule fois ;
 - Mode Duo : invitation, co-édition, conflit sans écrasement, visite pour deux confirmée ;
+- référencement : proposition d'un lieu, modération, revendication, informations de l'établissement, avis après visite et réponse ;
 - avis modéré, publié par un administrateur et journalisé.
 
 ### Mode Duo (captures réelles, mode connecté, mobile)
@@ -121,6 +122,18 @@ Captures produites par `DUO_SHOTS=docs/screenshots npm run test:e2e:connected --
 | « Nous y étions » | Visite à confirmer |
 |---|---|
 | ![Nous y étions](screenshots/duo-04-nous-y-etions.jpg) | ![Visite à confirmer](screenshots/duo-05-visite-a-confirmer.jpg) |
+
+### Référencement (captures réelles, mode connecté, mobile)
+
+Captures produites par `REF_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-referencing.spec.ts`, sous `next dev`. SIRET fictif.
+
+| Proposer un lieu | Revendiquer la fiche |
+|---|---|
+| ![Proposer](screenshots/ref-01-proposer.jpg) | ![Revendiquer](screenshots/ref-02-revendiquer.jpg) |
+
+| Espace établissement | Avis et réponse de l'établissement |
+|---|---|
+| ![Espace établissement](screenshots/ref-03-espace-etablissement.jpg) | ![Avis et réponse](screenshots/ref-04-avis-et-reponse.jpg) |
 
 Les autres écrans du mode connecté n'ont pas de captures.
 

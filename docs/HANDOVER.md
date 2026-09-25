@@ -125,6 +125,17 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 - `missions` contient les définitions. L'évaluation se fait côté serveur, sur la date de création des événements, dans le fuseau Europe/Paris. Seule la première visite réelle d'un lieu compte.
 - Le barème v1 et les 4 missions sont fournis par la migration `20260925000400_reference_data.sql` (`on conflict do nothing`) : une installation de production n'a pas besoin du seed de démonstration pour les avoir.
 
+### Référencement (D-017)
+
+Circuit de modération :
+
+1. Un membre propose un lieu via `/lieux/proposer`, ce qui appelle `POST /api/propositions` (doublons probables signalés, confirmation possible).
+2. L'administrateur l'examine dans l'onglet « Propositions » de `/admin`. S'il le publie, le lieu est inséré dans `places` avec la source `contribution-membres`, non vérifié, cellule H3 calculée ; le catalogue est revalidé dans la transaction.
+3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ».
+4. L'établissement corrige ses informations depuis `/contributions` (`PATCH /api/pro/lieux/[id]`) et répond aux avis (`POST /api/pro/reponses`). Les réponses sont modérées dans l'onglet « Réponses ».
+
+Le cache du catalogue est revalidé par empreinte à chaque lecture (D-018).
+
 ### Cohérence du catalogue
 
 - Une modification de lieu par l'administration (`src/server/places-admin.ts`) est validée en relisant le catalogue dans la même transaction. Si elle le rendait incohérent (parcours médaille sous 3 lieux, valeur « connue » sur un lieu non vérifié), elle est refusée avec une erreur 409.
@@ -143,6 +154,9 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 | Événements de mesure | `events` | mesure d'usage, **uniquement si consentement** (désactivé par défaut) | cascade |
 | Liste d'attente | `waitlist` (e-mail, date de consentement, empreinte salée d'IP facultative) | contact bêta | manuelle (aucune interface) |
 | Avis et signalements d'avis | `reviews`, `review_reports` | modération | cascade |
+| Propositions de lieux (contenu, position, auteur) | `place_proposals` | référencement modéré | l'auteur devient vide à la suppression du compte ; le lieu publié reste (contribution anonymisée) |
+| Revendications (SIRET, preuve : e-mail professionnel ou description du justificatif) | `place_claims` | vérification de l'établissement | cascade à la suppression du compte ; **données professionnelles à traiter avec soin** |
+| Réponses des établissements aux avis | `review_replies` | droit de réponse | cascade |
 | Signalements d'erreur sur un lieu | `error_reports` | qualité du catalogue | conservés sans auteur (`on delete set null`) |
 | Journal d'administration | `admin_audit_log` | traçabilité | conservé (sans clé étrangère vers l'administrateur) |
 

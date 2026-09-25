@@ -77,14 +77,31 @@ export async function loadCatalogFromDb(db: Queryable): Promise<CatalogIndex> {
   return buildCatalogIndex(catalog);
 }
 
-let cache: { index: CatalogIndex; at: number } | null = null;
-const TTL_MS = 60_000;
+let cache: { index: CatalogIndex; at: number; stamp: string } | null = null;
+const TTL_MS = 10 * 60_000;
 
-/** Cache mémoire court (par instance) ; invalidé par l'administration. */
+/**
+ * Empreinte bon marché du contenu publié : toute création, modification, publication ou
+ * suppression de lieu ou de destination la change (déclencheurs updated_at, compte).
+ */
+async function catalogStamp(db: Queryable): Promise<string> {
+  const res = await db.query(
+    `select (select count(*) from public.places)::text || ':' || coalesce((select max(updated_at) from public.places)::text, '') || ':' ||
+            (select count(*) from public.destinations where published)::text as stamp`,
+  );
+  return String(res.rows[0].stamp);
+}
+
+/**
+ * Cache mémoire par instance, revalidé à chaque lecture par l'empreinte ci-dessus : une
+ * instance ne sert jamais un catalogue périmé après une publication faite par une autre
+ * instance (routes séparées, fonctions serverless). Rechargement complet au plus tard après 10 min.
+ */
 export async function getCachedCatalog(db: Queryable): Promise<CatalogIndex> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.index;
+  const stamp = await catalogStamp(db);
+  if (cache && cache.stamp === stamp && Date.now() - cache.at < TTL_MS) return cache.index;
   const index = await loadCatalogFromDb(db);
-  cache = { index, at: Date.now() };
+  cache = { index, at: Date.now(), stamp };
   return index;
 }
 

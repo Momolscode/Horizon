@@ -6,11 +6,14 @@ import { ChevronLeft, ShieldAlert } from "lucide-react";
 import { formatRatio, type Metrics } from "@/modules/admin/metrics";
 import { MODE } from "@/config/mode";
 
-type Tab = "overview" | "reports" | "reviews" | "places" | "missions" | "adjust" | "audit";
+type Tab = "overview" | "reports" | "reviews" | "proposals" | "claims" | "replies" | "places" | "missions" | "adjust" | "audit";
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "overview", label: "Vue d'ensemble" },
   { id: "reports", label: "Signalements" },
   { id: "reviews", label: "Avis" },
+  { id: "proposals", label: "Propositions" },
+  { id: "claims", label: "Revendications" },
+  { id: "replies", label: "Réponses" },
   { id: "places", label: "Lieux" },
   { id: "missions", label: "Missions & barèmes" },
   { id: "adjust", label: "Corrections" },
@@ -113,6 +116,9 @@ export function AdminScreen() {
         {tab === "overview" && overview.data ? <Overview counts={overview.data.counts} metrics={overview.data.metrics} /> : null}
         {tab === "reports" ? <Reports version={version} act={act} /> : null}
         {tab === "reviews" ? <Reviews version={version} act={act} /> : null}
+        {tab === "proposals" ? <Proposals version={version} act={act} /> : null}
+        {tab === "claims" ? <Claims version={version} act={act} /> : null}
+        {tab === "replies" ? <Replies version={version} act={act} /> : null}
         {tab === "places" ? <Places version={version} act={act} /> : null}
         {tab === "missions" ? <MissionsAndConfig version={version} act={act} /> : null}
         {tab === "adjust" ? <Adjust act={act} /> : null}
@@ -206,6 +212,116 @@ function Reports({ version, act }: { version: number; act: Act }) {
                 </button>
                 <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reports/${r.id}`, "PATCH", { status: "rejected" }, "Signalement rejeté.")}>
                   Rejeter
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function Proposals({ version, act }: { version: number; act: Act }) {
+  const { data } = useAdminData<{ proposals: Array<Json> }>("/api/admin/propositions", version);
+  return (
+    <Card title="Propositions de lieux">
+      <p className="mb-3 text-xs text-ink-3">Publier ajoute le lieu au catalogue, marqué « proposé par un membre, non vérifié ». Vérifiez l&apos;absence de publicité et de doublon.</p>
+      {!data?.proposals.length ? (
+        <p className="text-sm text-ink-3">Aucune proposition en attente.</p>
+      ) : (
+        <ul className="space-y-2">
+          {data.proposals.map((p) => {
+            const payload = (p.payload ?? {}) as Json;
+            const dups = (p.duplicate_of as string[] | undefined) ?? [];
+            return (
+              <li key={String(p.id)} className="rounded-2xl border border-line p-3 text-sm">
+                <p className="font-bold">
+                  {String(p.name)} · {String(p.category)} · {String(p.destination_id)} · par {String(p.pseudonym)}
+                </p>
+                <p className="text-ink-2">{String(payload.summary ?? "")}</p>
+                <p className="text-xs text-ink-3">
+                  {Number(p.lat).toFixed(5)}, {Number(p.lng).toFixed(5)}
+                  {payload.website ? ` · ${String(payload.website)}` : ""} · prix : {String(payload.price)}
+                </p>
+                {dups.length ? <p className="mt-1 text-xs font-bold text-warn-ink">Doublon possible signalé à l&apos;envoi : {dups.join(", ")} (la personne a confirmé qu&apos;il s&apos;agit d&apos;un autre lieu).</p> : null}
+                <div className="mt-2 flex gap-2">
+                  <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/propositions/${p.id}`, "PATCH", { decision: "approve" }, "Lieu publié.")}>
+                    Publier
+                  </button>
+                  <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/propositions/${p.id}`, "PATCH", { decision: "reject", reason: dups.length ? "Doublon d'un lieu existant" : "Proposition non retenue" }, "Proposition refusée.")}>
+                    Refuser
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function Claims({ version, act }: { version: number; act: Act }) {
+  const { data } = useAdminData<{ claims: Array<Json> }>("/api/admin/revendications", version);
+  return (
+    <Card title="Revendications de fiches">
+      <p className="mb-3 text-xs text-ink-3">
+        Contrôle manuel : l&apos;établissement doit exister à l&apos;adresse du lieu (base Sirene) et la preuve doit être crédible. Lien vers l&apos;Annuaire des entreprises fourni à titre d&apos;aide (format non vérifié hors ligne).
+      </p>
+      {!data?.claims.length ? (
+        <p className="text-sm text-ink-3">Aucune demande en attente.</p>
+      ) : (
+        <ul className="space-y-2">
+          {data.claims.map((c) => (
+            <li key={String(c.id)} className="rounded-2xl border border-line p-3 text-sm">
+              <p className="font-bold">
+                {String(c.place_name)} · demandé par {String(c.pseudonym)}
+              </p>
+              <p className="text-ink-2">
+                SIRET{" "}
+                <a className="underline" href={`https://annuaire-entreprises.data.gouv.fr/etablissement/${String(c.siret)}`} target="_blank" rel="noopener noreferrer">
+                  {String(c.siret)}
+                </a>{" "}
+                · preuve ({c.proof_kind === "email_domain" ? "e-mail du domaine" : "justificatif"}) : {String(c.proof_text)}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "approve" }, "Revendication validée.")}>
+                  Valider
+                </button>
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "reject", reason: "Justificatif insuffisant" }, "Revendication refusée.")}>
+                  Refuser
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function Replies({ version, act }: { version: number; act: Act }) {
+  const { data } = useAdminData<{ replies: Array<Json> }>("/api/admin/reponses", version);
+  return (
+    <Card title="Réponses des établissements">
+      {!data?.replies.length ? (
+        <p className="text-sm text-ink-3">Aucune réponse en attente.</p>
+      ) : (
+        <ul className="space-y-2">
+          {data.replies.map((r) => (
+            <li key={String(r.review_id)} className="rounded-2xl border border-line p-3 text-sm">
+              <p className="font-bold">
+                {String(r.place_name)} · avis {"★".repeat(Number(r.rating))}
+              </p>
+              <p className="text-ink-3">Avis : {String(r.review_body)}</p>
+              <p className="mt-1 text-ink-2">Réponse : {String(r.body)}</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reponses/${r.review_id}`, "PATCH", { decision: "publish", reviewedVersion: String(r.version) }, "Réponse publiée.")}>
+                  Publier
+                </button>
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reponses/${r.review_id}`, "PATCH", { decision: "reject", reviewedVersion: String(r.version) }, "Réponse refusée.")}>
+                  Refuser
                 </button>
               </div>
             </li>

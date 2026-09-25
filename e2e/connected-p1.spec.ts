@@ -81,6 +81,11 @@ test.describe.serial("P1 — mode connecté", () => {
     // Texte unique par exécution : la base locale n'est pas réinitialisée entre deux lancements.
     const reviewText = `Des ruelles magnifiques, à parcourir tôt le matin (${stamp}).`;
     await page.goto("/lieux/lyon-vieux-lyon");
+    // Avis réservés aux personnes ayant déclaré une visite du lieu (D-017).
+    await expect(page.getByText(/déclarez d'abord votre visite/)).toBeVisible();
+    await page.getByRole("button", { name: /J'y suis allé/ }).click();
+    await page.getByRole("dialog", { name: "Ajouter une visite au carnet" }).getByRole("button", { name: "Enregistrer la visite" }).click();
+    await page.getByRole("dialog", { name: /Parcelle révélée|Visite ajoutée/ }).getByRole("button", { name: "Continuer" }).click();
     await page.getByLabel("Votre avis").fill(reviewText);
     await page.getByRole("button", { name: "Envoyer" }).click();
     await expect(page.getByText(/en attente de modération/)).toBeVisible();

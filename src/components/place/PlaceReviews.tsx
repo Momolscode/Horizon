@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Flag, MessageSquare, Star } from "lucide-react";
+import { Flag, Footprints, MessageSquare, Store, Star } from "lucide-react";
+import { VISIT_RULES } from "@/modules/progression/config";
 import { DEMO_REVIEWS } from "@/modules/community/demo-community";
 import { useHorizon } from "../providers/HorizonProvider";
 import { useAuth } from "../connected/AuthContext";
 
-type PublishedReview = { id: string; rating: number; body: string; created_at: string; author: string; mine: boolean };
+type PublishedReview = {
+  id: string;
+  rating: number;
+  body: string;
+  created_at: string;
+  author: string;
+  mine: boolean;
+  after_visit: boolean;
+  reply_body: string | null;
+  reply_at: string | null;
+};
 type OwnReview = { id: string; rating: number; body: string; status: "pending" | "published" | "rejected"; rejection_reason: string | null };
 
 function Stars({ value, label }: { value: number; label?: string }) {
@@ -24,7 +35,9 @@ function Stars({ value, label }: { value: number; label?: string }) {
  * publiés après modération. Aucune récompense n'est liée au fait de laisser un avis.
  */
 export function PlaceReviews({ placeId }: { placeId: string }) {
-  const { status, requiresAccount, toast } = useHorizon();
+  const { status, requiresAccount, toast, state } = useHorizon();
+  // Un avis n'est possible qu'après avoir déclaré une visite de ce lieu (règle vérifiée aussi par la base).
+  const hasVisited = state.progression.visits.some((v) => v.placeId === placeId && VISIT_RULES[v.status].countsAsRealVisit);
   const auth = useAuth();
   const [published, setPublished] = useState<PublishedReview[] | null>(null);
   const [own, setOwn] = useState<OwnReview | null>(null);
@@ -89,8 +102,21 @@ export function PlaceReviews({ placeId }: { placeId: string }) {
             <li key={r.id} className="rounded-2xl border border-line px-4 py-3 text-sm">
               <p className="flex flex-wrap items-center gap-2 font-bold">
                 {r.author} <Stars value={r.rating} />
+                {r.after_visit ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-bold text-ink-2">
+                    <Footprints size={11} aria-hidden="true" /> Après visite déclarée
+                  </span>
+                ) : null}
               </p>
               <p className="mt-1 text-ink-2">{r.body}</p>
+              {r.reply_body ? (
+                <div className="mt-2 rounded-xl bg-surface-2 px-3 py-2">
+                  <p className="flex items-center gap-1 text-xs font-bold text-ink">
+                    <Store size={12} aria-hidden="true" /> Réponse de l&apos;établissement
+                  </p>
+                  <p className="text-ink-2">{r.reply_body}</p>
+                </div>
+              ) : null}
               {!r.mine && auth?.user ? (
                 <button
                   type="button"
@@ -115,6 +141,8 @@ export function PlaceReviews({ placeId }: { placeId: string }) {
           Votre avis : <Stars value={own.rating} /> —{" "}
           {own.status === "pending" ? "en attente de modération." : own.status === "published" ? "publié." : `refusé (${own.rejection_reason ?? "non conforme"}).`}
         </p>
+      ) : !hasVisited ? (
+        <p className="mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-sm text-ink-2">Pour laisser un avis, déclarez d&apos;abord votre visite de ce lieu (bouton « J&apos;y suis allé »). Les avis sont réservés aux personnes qui l&apos;ont déclaré.</p>
       ) : (
         <form
           className="mt-3 space-y-2 rounded-2xl border border-line p-4"
@@ -122,7 +150,7 @@ export function PlaceReviews({ placeId }: { placeId: string }) {
             e.preventDefault();
             if (!auth) return;
             const { error } = await auth.supabase.from("reviews").insert({ place_id: placeId, rating, body: body.trim() });
-            if (error) toast("Envoi impossible : vérifiez la longueur de votre avis (10 à 1 000 caractères).", "error");
+            if (error) toast(error.code === "23514" && !/char_length/.test(error.message) ? error.message : "Envoi impossible : vérifiez la longueur de votre avis (10 à 1 000 caractères).", "error");
             else {
               toast("Merci ! Votre avis sera publié après modération.", "success");
               setBody("");

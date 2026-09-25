@@ -14,7 +14,8 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 | Code source | environ 13 300 lignes TypeScript/TSX dans `src/` (145 fichiers) et environ 700 lignes de migrations SQL |
 | Tests automatisés | unitaires (Vitest), intégration sur PostgreSQL réel, parcours Playwright démo et connectés ; résultats dans `docs/STATUS.md` |
 | Schéma de données avec sécurité au niveau des lignes (RLS) | 24 tables, attribution serveur transactionnelle et idempotente |
-| Administration | lieux, signalements, avis, missions, barèmes versionnés, corrections d'XP, journal d'audit, tableau de mesure |
+| Administration | lieux, signalements, avis, propositions de lieux, revendications, réponses des établissements, missions, barèmes versionnés, corrections d'XP, journal d'audit, tableau de mesure |
+| Référencement élargi | propositions de lieux par les membres (modérées), revendication de fiche par les établissements (SIRET + preuve, validation manuelle), avis après visite déclarée, réponses gratuites ; **aucune offre payante implémentée** |
 | Identité visuelle et illustrations génératives originales | voir `docs/ASSET_REGISTER.md` |
 | Documentation de reprise | `docs/HANDOVER.md`, `docs/DECISIONS.md`, `docs/PRODUCT_SPEC.md`, `docs/KNOWN_LIMITATIONS.md` |
 
@@ -38,7 +39,7 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 2. Projet Supabase hébergé, SMTP, déploiement, CI exécutée sur GitHub.
 3. Validation juridique : confidentialité, CGU, mentions légales ; vérification de la disponibilité du nom.
 4. Tests avec de vrais utilisateurs. Aucun n'a eu lieu.
-5. Fonctions non livrées : défis amicaux, notifications, applications natives, référencement élargi (conçu, voir DECISIONS D-017), paiements ou partenaires. Le Mode Duo est livré, mais testé seulement sur la pile locale.
+5. Fonctions non livrées : défis amicaux, notifications, applications natives, paiements ou partenaires. Le référencement payant (fiche enrichie) est souhaité mais pas implémenté : c'est une *hypothèse* de revenu, sans aucune donnée. Le Mode Duo et le référencement sont livrés, mais testés seulement sur la pile locale.
 
 ## 5. Risques connus
 

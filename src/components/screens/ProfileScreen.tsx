@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Award, BookOpen, Download, Lock, Medal, Pencil, Settings, Share2, Trash2 } from "lucide-react";
+import { Award, BookOpen, Download, HandHeart, Lock, Medal, Pencil, Settings, Share2, Trash2 } from "lucide-react";
 import { BADGES, LEVELS, VISIT_RULES, levelForXp, medalBadgeId } from "@/modules/progression/config";
 import { badgeLabel, computeStats, medalProgress, totals } from "@/modules/progression/engine";
 import { cellsInBbox, parcelsInBbox } from "@/modules/progression/parcels";
@@ -74,9 +74,14 @@ export function ProfileScreen() {
     <div className="mx-auto max-w-4xl px-4 pb-12 pt-6">
       <div className="flex items-center justify-between">
         <p className="eyebrow">Profil</p>
-        <Link href="/profil/parametres" className="inline-flex min-h-11 items-center gap-1.5 font-bold text-ink-2">
-          <Settings size={18} aria-hidden="true" /> Paramètres
-        </Link>
+        <span className="flex flex-wrap justify-end gap-x-4">
+          <Link href="/contributions" className="inline-flex min-h-11 items-center gap-1.5 font-bold text-ink-2">
+            <HandHeart size={18} aria-hidden="true" /> Contributions
+          </Link>
+          <Link href="/profil/parametres" className="inline-flex min-h-11 items-center gap-1.5 font-bold text-ink-2">
+            <Settings size={18} aria-hidden="true" /> Paramètres
+          </Link>
+        </span>
       </div>
 
       {/* Passeport */}

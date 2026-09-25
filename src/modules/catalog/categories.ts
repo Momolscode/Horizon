@@ -16,6 +16,8 @@ export const CATEGORY_IDS = [
   "beach",
   "viewpoint",
   "leisure",
+  "shop",
+  "outdoor",
 ] as const;
 
 export type CategoryId = (typeof CATEGORY_IDS)[number];
@@ -42,6 +44,8 @@ export const CATEGORIES: Record<CategoryId, CategoryMeta> = {
   beach: { id: "beach", label: "Plage & littoral", plural: "Plages & littoral", icon: "Sailboat", tone: "blue" },
   viewpoint: { id: "viewpoint", label: "Point de vue", plural: "Points de vue", icon: "Mountain", tone: "green" },
   leisure: { id: "leisure", label: "Loisirs", plural: "Loisirs", icon: "Ticket", tone: "blue" },
+  shop: { id: "shop", label: "Commerce & artisan", plural: "Commerces & artisans", icon: "Store", tone: "coral" },
+  outdoor: { id: "outdoor", label: "Activité de plein air", plural: "Activités de plein air", icon: "Tent", tone: "green" },
 };
 
 export const THEME_IDS = ["culture", "nature", "food", "sport", "relax", "family", "heritage", "leisure"] as const;

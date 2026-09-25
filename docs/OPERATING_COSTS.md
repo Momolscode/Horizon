@@ -31,7 +31,7 @@
 Ces postes ne sont pas chiffrés :
 
 - **Vérification et mise à jour du catalogue :** coût humain ou licence de données. C'est le poste le plus structurant, car le catalogue actuel n'est pas vérifié.
-- **Modération des avis et des signalements :** temps humain, avec une interface d'administration fournie.
+- **Modération :** avis, signalements, propositions de lieux, revendications d'établissements (contrôle manuel du SIRET et de la preuve) et réponses. Temps humain, avec une interface d'administration fournie.
 - **Conseil juridique :** confidentialité, CGU, marque.
 - **Assistance utilisateurs :** adresse à configurer (`NEXT_PUBLIC_SUPPORT_EMAIL`).
 

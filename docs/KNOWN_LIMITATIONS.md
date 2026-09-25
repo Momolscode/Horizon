@@ -87,7 +87,27 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - **Visite confirmée :** elle reste une visite déclarée, donc falsifiable comme les autres (voir § 3). Les deux amis peuvent s'entendre pour se créditer mutuellement, dans les limites habituelles (plafond, une récompense par lieu).
 - **Démo :** le Mode Duo y est présenté mais indisponible.
 
-## 9. Fonctions non livrées
+## 9. Référencement et avis
+
+- **Offre payante :** souhaitée à terme (fiche enrichie), **non implémentée**. Aucun paiement n'est intégré.
+- **Revendication :**
+  - le SIRET n'est contrôlé que dans sa forme (14 chiffres, clé de Luhn) ;
+  - l'existence de l'établissement et la preuve sont vérifiées **manuellement** par l'administrateur ;
+  - le lien vers l'Annuaire des entreprises n'a pas été vérifié (pas de réseau) ;
+  - aucun fichier justificatif n'est téléversé (stockage désactivé) : l'administrateur recontacte la personne ;
+  - aucune interface ne permet de retirer la gestion d'une fiche à un établissement validé ni de la transférer : il faut une requête SQL.
+- **Propositions :**
+  - uniquement dans les 4 destinations ;
+  - position placée sur un fond sans rues, donc « approximative » ;
+  - pas de modification ni de retrait par l'auteur après l'envoi ;
+  - pas de photos ;
+  - détection des doublons par nom proche à moins de 100 m (heuristique : des doublons peuvent passer, et de faux doublons être signalés ; la personne peut confirmer).
+- **Avis :** réservés aux personnes ayant déclaré une visite. La déclaration étant falsifiable (§ 3), cela ajoute une étape mais ne prouve pas la présence.
+- **Réponses :** les réponses des établissements passent par la modération, ce qui représente une charge humaine.
+- **Nouvelles catégories :** « Commerce & artisan » et « Activité de plein air » n'ont aucun lieu dans le catalogue de démonstration. En démo, le filtre correspondant renvoie donc 0 lieu.
+- **Conditions d'utilisation des contributions :** non rédigées, notamment les droits sur les textes proposés par les membres. À faire avant ouverture.
+
+## 10. Fonctions non livrées
 
 - Défis amicaux et comparaisons avancées (seule une comparaison simple existe).
 - Notifications (push, e-mail).
@@ -97,14 +117,14 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - Traduction : interface en français uniquement.
 - Import d'un catalogue vérifié : procédure décrite dans HANDOVER, pas d'outil.
 
-## 10. Qualité et outillage
+## 11. Qualité et outillage
 
 - **CI GitHub Actions** fournie, jamais exécutée sur GitHub.
 - **Tests e2e :** exécutés sous Chromium headless uniquement (rendu logiciel SwiftShader). Firefox, Safari et les vrais appareils mobiles n'ont pas été testés.
 - **Accessibilité :** rôles ARIA, focus, contrastes vérifiés visuellement, `prefers-reduced-motion` respecté. Pas d'audit automatisé (axe) ni de test avec lecteur d'écran.
 - **Versions :** ESLint 9 en fin de maintenance ; TypeScript 5.9, alors que 7 existe (voir DECISIONS D-001).
 
-## 11. Juridique et commercial
+## 12. Juridique et commercial
 
 - Nom « HORIZON » et domaine : disponibilité non vérifiée.
 - Politique de confidentialité, CGU et mentions légales : non rédigées ; validation juridique nécessaire.

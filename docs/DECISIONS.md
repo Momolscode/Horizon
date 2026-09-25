@@ -127,7 +127,7 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - visite confirmée créditée une seule fois ;
   - demande expirée ou refusée sans crédit.
 
-## D-017 — Référencement et avis élargis : conception validée (non implémentée)
+## D-017 — Référencement et avis élargis : conception validée, implémentée (sans offre payante)
 
 Validée par le porteur le 2026-09-25, lors d'une séance de conception.
 
@@ -149,6 +149,14 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - signalée comme telle ;
   - aucun paiement réel sans décision explicite du porteur et validation juridique (transparence des classements et des avis, conditions commerciales) ;
   - aucun tarif fixé.
+- **Implémentation (migration `20260925000600_referencing.sql`) :**
+  - catégories `shop` (Commerce & artisan) et `outdoor` (Activité de plein air) ;
+  - source `contribution-membres` (type `community`) ;
+  - tables `place_proposals`, `place_claims` (un seul gestionnaire approuvé par fiche) et `review_replies`, sans aucun droit client ;
+  - déclencheur `check_review_eligibility` (visite déclarée obligatoire, pas d'auto-évaluation), appliqué aux avis déposés par un compte ;
+  - `published_reviews` renvoie la réponse publiée et la mention « après visite ».
+  - Logique pure : `src/modules/catalog/contributions.ts` (schémas, doublons, SIRET/Luhn, construction du lieu, informations de l'établissement en `estimate` avec `by: "establishment"`).
+  - Serveur : `src/server/contributions.ts`. Interface : `/lieux/proposer`, `/contributions`, revendication depuis la fiche, onglets d'administration.
 - **Écartés :** mise en avant « sponsorisée », présence payée dans « Surprends-nous », réponses aux avis payantes, vérification par SMS ou courrier (coût), fiches hors destinations.
 - **Tests requis :**
   - modération des propositions et détection des doublons ;
@@ -156,3 +164,9 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - un professionnel ne peut ni toucher aux avis ni noter sa fiche ;
   - un avis est refusé sans visite déclarée ;
   - le classement ignore tout statut payant.
+
+## D-018 — Cache du catalogue revalidé par empreinte
+
+- **Contexte :** le cache mémoire du catalogue (60 s) était propre à chaque instance de route. L'administration invalidait celui de sa propre route, mais la page d'un lieu ou `/api/catalog` pouvaient servir un catalogue périmé, en développement comme en production serverless. Découvert par un test e2e : un lieu tout juste publié renvoyait « Page introuvable ».
+- **Décision :** avant de réutiliser le cache, chaque lecture calcule une empreinte bon marché (nombre de lieux, dernier `updated_at`, nombre de destinations publiées). Rechargement complet au plus tard après 10 min.
+- **Conséquences :** une petite requête par lecture du catalogue. Une modification de destination sans changement de lieu (parcours médaille) n'est prise en compte qu'après 10 min, car aucune interface ne permet cette modification aujourd'hui.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, CalendarPlus, CircleAlert, CloudOff, Flag, Footprints, Navigation, ShieldCheck, Sparkles } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarPlus, CircleAlert, CloudOff, Flag, Footprints, Navigation, ShieldCheck, Sparkles, Store, Users } from "lucide-react";
 import type { Place } from "@/modules/catalog/schema";
 import { openStatusLabel, practicalLines, priceText } from "@/modules/catalog/present";
 import { VISIT_RULES } from "@/modules/progression/config";
@@ -13,8 +13,10 @@ import { PlaceArt } from "../PlaceArt";
 import { CategoryBadge } from "../CategoryIcon";
 import { AddToExcursionDialog, NavigateDialog, ReportDialog, SaveDialog, VisitDialog } from "./PlaceDialogs";
 import { PlaceReviews } from "./PlaceReviews";
+import { ClaimDialog } from "../contrib/ClaimDialog";
+import { COMMUNITY_SOURCE_ID } from "@/modules/catalog/contributions";
 
-type DialogName = "visit" | "save" | "excursion" | "navigate" | "report" | null;
+type DialogName = "visit" | "save" | "excursion" | "navigate" | "report" | "claim" | null;
 
 function WeatherBlock({ place }: { place: Place }) {
   const { catalog } = useHorizon();
@@ -46,7 +48,7 @@ function WeatherBlock({ place }: { place: Place }) {
 }
 
 export function PlaceDetail({ place, userPosition, compact = false }: { place: Place; userPosition: { lat: number; lng: number } | null; compact?: boolean }) {
-  const { catalog, state, actions } = useHorizon();
+  const { catalog, state, actions, status, requiresAccount } = useHorizon();
   const destination = catalog.destinationsById.get(place.destinationId)!;
   const [dialog, setDialog] = useState<DialogName>(null);
   const saved = state.collections.some((c) => c.placeIds.includes(place.id));
@@ -84,6 +86,11 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
               <ShieldCheck size={13} aria-hidden="true" /> Vérifié le {place.verification.checkedAt}
             </span>
           )}
+          {place.sourceIds.includes(COMMUNITY_SOURCE_ID) ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-bold text-ink-2">
+              <Users size={13} aria-hidden="true" /> Proposé par un membre
+            </span>
+          ) : null}
           {place.lesserKnown ? <span className="rounded-full bg-green-soft px-2.5 py-1 text-xs font-bold text-green-ink">Moins connu</span> : null}
           {place.sponsored ? <span className="rounded-full bg-coral-soft px-2.5 py-1 text-xs font-bold text-coral-ink">Sponsorisé · {place.sponsored.label}</span> : null}
           {visits.some((v) => VISIT_RULES[v.status].countsAsRealVisit) ? (
@@ -152,6 +159,7 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
                 <dd className={l.certainty === "unknown" ? "text-ink-3 italic" : "text-ink"}>
                   {l.value}
                   {l.certainty === "estimate" ? <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-bold not-italic text-warn-ink">Estimation</span> : null}
+                  {l.certainty === "establishment" ? <span className="ml-2 rounded-full bg-green-soft px-2 py-0.5 text-[11px] font-bold not-italic text-green-ink">Fourni par l&apos;établissement</span> : null}
                   {l.note ? <span className="mt-0.5 block text-xs text-ink-3">{l.note}</span> : null}
                 </dd>
               </div>
@@ -195,9 +203,16 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => setDialog("report")} className="mt-3 inline-flex min-h-11 items-center gap-2 font-bold text-coral-ink underline-offset-2 hover:underline">
-            <Flag size={15} aria-hidden="true" /> Signaler une erreur
-          </button>
+          <div className="mt-3 flex flex-wrap gap-x-5">
+            <button type="button" onClick={() => setDialog("report")} className="inline-flex min-h-11 items-center gap-2 font-bold text-coral-ink underline-offset-2 hover:underline">
+              <Flag size={15} aria-hidden="true" /> Signaler une erreur
+            </button>
+            {status.kind === "connected" && !requiresAccount && !place.fictional ? (
+              <button type="button" onClick={() => setDialog("claim")} className="inline-flex min-h-11 items-center gap-2 font-bold text-ink-2 underline-offset-2 hover:underline" aria-haspopup="dialog">
+                <Store size={15} aria-hidden="true" /> C&apos;est votre établissement ?
+              </button>
+            ) : null}
+          </div>
         </section>
       </div>
 
@@ -206,6 +221,7 @@ export function PlaceDetail({ place, userPosition, compact = false }: { place: P
       <AddToExcursionDialog place={place} open={dialog === "excursion"} onClose={() => setDialog(null)} />
       <NavigateDialog place={place} open={dialog === "navigate"} onClose={() => setDialog(null)} from={userPosition} />
       <ReportDialog place={place} open={dialog === "report"} onClose={() => setDialog(null)} />
+      {status.kind === "connected" ? <ClaimDialog key={`${place.id}-${dialog === "claim"}`} place={place} open={dialog === "claim"} onClose={() => setDialog(null)} /> : null}
     </article>
   );
 }

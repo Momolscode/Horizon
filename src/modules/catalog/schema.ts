@@ -21,7 +21,7 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$|^24:00$/, "Heure attend
 export const SourceSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  kind: z.enum(["editorial", "open_data", "official", "partner", "demo_fixture"]),
+  kind: z.enum(["editorial", "open_data", "official", "partner", "demo_fixture", "community"]),
   url: z.url().nullable(),
   license: z.string().min(1),
   /** Conditions d'utilisation résumées (réutilisation, attribution, transfert). */
@@ -34,13 +34,14 @@ export type Source = z.infer<typeof SourceSchema>;
 export function known<T extends z.ZodTypeAny>(value: T) {
   return z.discriminatedUnion("status", [
     z.object({ status: z.literal("known"), value, sourceId: z.string().min(1), checkedAt: isoDate.nullable() }),
-    z.object({ status: z.literal("estimate"), value, note: z.string().min(1) }),
+    /** `by: "establishment"` : valeur déclarée par l'établissement qui a revendiqué sa fiche (non vérifiée). */
+    z.object({ status: z.literal("estimate"), value, note: z.string().min(1), by: z.literal("establishment").optional() }),
     z.object({ status: z.literal("unknown") }),
   ]);
 }
 export type Known<T> =
   | { status: "known"; value: T; sourceId: string; checkedAt: string | null }
-  | { status: "estimate"; value: T; note: string }
+  | { status: "estimate"; value: T; note: string; by?: "establishment" }
   | { status: "unknown" };
 
 export const PriceSchema = z.discriminatedUnion("kind", [
