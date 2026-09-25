@@ -92,3 +92,41 @@ Format court : contexte → décision → conséquences. Les décisions réversi
 - **Contexte :** les pages de l'application sont rendues sous une frontière Suspense (paramètres d'URL côté client). Une fois le streaming commencé, Next.js ne peut plus changer le statut HTTP.
 - **Décision :** accepter une 404 « douce » : page « Page introuvable » en français, avec `noindex`, mais statut 200. Les adresses hors application renvoient un vrai 404.
 - **Alternative écartée pour l'instant :** vérifier l'identifiant dans `proxy.ts` avant le rendu. En mode connecté, il faudrait lire le catalogue en base à chaque requête.
+
+## D-016 — Mode Duo : conception validée (non implémentée)
+
+Validée par le porteur le 2026-09-25, lors d'une séance de conception.
+
+- **Invitation :** un ami déjà accepté, une seule personne invitée par excursion. L'invité accepte ou refuse. Retirer l'ami ou le bloquer coupe l'accès.
+- **Droits :**
+  - les deux co-éditent les étapes, horaires, titre et transport ;
+  - seul le propriétaire peut supprimer l'excursion ou retirer l'invité ;
+  - l'invité peut quitter l'excursion.
+- **Synchronisation :**
+  - l'excursion se recharge à l'ouverture et au retour sur l'onglet, avec la mention « modifié par X il y a N min » ;
+  - chaque excursion porte un numéro de version : un enregistrement simultané est refusé au second, qui voit la version récente (rien n'est écrasé) ;
+  - pas de temps réel.
+- **Visite pour deux :**
+  - A déclare « nous y étions » ; sa visite est créditée normalement ;
+  - B reçoit une demande à confirmer sous 7 jours ;
+  - s'il accepte, le serveur crée SA visite déclarée, avec les règles habituelles (plafond, une récompense par lieu, idempotence) ;
+  - s'il refuse ou laisse expirer, rien n'est crédité ;
+  - aucune position n'est transmise d'un compte à l'autre.
+- **Démo :** le Duo est présenté mais indisponible, comme les amis réels.
+- **Tests requis :**
+  - invitation refusée à un non-ami ;
+  - suppression interdite à l'invité ;
+  - blocage qui coupe l'accès ;
+  - conflit de versions détecté ;
+  - visite confirmée créditée une seule fois ;
+  - demande expirée ou refusée sans crédit.
+
+## D-017 — Référencement et avis élargis : orientations (en cours de conception)
+
+- **Portée :** restaurants, entreprises, activités extérieures de tout genre.
+- **Qui ajoute les fiches :**
+  - les utilisateurs proposent ; la fiche est publiée après modération, marquée « non vérifiée » ;
+  - le professionnel peut ensuite revendiquer sa fiche pour corriger ses informations ;
+  - il ne peut ni modifier ni supprimer les avis.
+- **Référencement payant :** souhaité par le porteur à terme. **Non implémenté.** Aucune intégration de paiement réel sans décision explicite et validation juridique : transparence des classements et avis, mention « sponsorisé », conditions commerciales. Principe retenu dès maintenant : un paiement n'agit jamais sur les notes, les avis ou les recommandations expliquées, et toute mise en avant payée est signalée comme telle. Le champ `sponsored` du catalogue existe déjà.
+- **Suite :** vérification des professionnels, contenu de l'offre payante et règles d'avis restent à décider (séance de conception en cours).

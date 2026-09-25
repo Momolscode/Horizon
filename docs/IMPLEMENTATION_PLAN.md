@@ -24,9 +24,16 @@ Chaque tâche a un résultat observable et un critère de validation. État tenu
 | 11 | Missions quotidiennes, hebdomadaires et mensuelles | `missions.test.ts`, `missions.db.test.ts`, `connected-p1.spec.ts` | fait |
 | 12 | Dossier de transmission (HANDOVER, ASSET_REGISTER, ACQUISITION_BRIEF, OPERATING_COSTS, DEMO_SCRIPT, KNOWN_LIMITATIONS) + captures réelles | relecture | fait |
 
+## Prochaines fonctions conçues (non livrées)
+
+| # | Fonction | Conception | État |
+|---|---|---|---|
+| 13 | Mode Duo : co-édition entre amis, visite pour deux confirmée par l'autre | DECISIONS D-016 (validée) | à faire |
+| 14 | Référencement et avis élargis (restaurants, entreprises, activités), revendication par les professionnels | DECISIONS D-017 (en cours) | à concevoir |
+
 ## P2 — préparé, non livré
 
-Paiements réels, bons partenaires, publicité récompensée, localisation en arrière-plan, trafic en direct, cartes hors ligne avancées, applications natives, mode Duo collaboratif (après sécurisation des invitations), défis amicaux, notifications, IA de reformulation.
+Paiements réels (dont le référencement payant souhaité à terme, voir D-017), bons partenaires, publicité récompensée, localisation en arrière-plan, trafic en direct, cartes hors ligne avancées, applications natives, défis amicaux, notifications, IA de reformulation.
 
 ## Ordre de travail
 
