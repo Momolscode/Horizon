@@ -27,6 +27,10 @@ export async function loadCatalogFromDb(db: Queryable): Promise<CatalogIndex> {
          from public.places where status = 'published' order by id`,
     ),
   ]);
+  // Un lieu dépublié (brouillon, archivé) sort aussi des parcours médaille : le
+  // catalogue reste cohérent. Un parcours réduit sous son minimum est refusé en amont
+  // par l'administration (voir updatePlace).
+  const publishedIds = new Set(places.rows.map((r) => String(r.id)));
   const catalog: Catalog = {
     version: 1,
     kind: "production",
@@ -46,7 +50,7 @@ export async function loadCatalogFromDb(db: Queryable): Promise<CatalogIndex> {
       tagline: r.tagline,
       description: r.description,
       palette: r.palette,
-      medalRoute: { title: r.medal_title, placeIds: r.medal_place_ids },
+      medalRoute: { title: r.medal_title, placeIds: (r.medal_place_ids as string[]).filter((id) => publishedIds.has(id)) },
     })),
     places: places.rows.map((r) => ({
       id: r.id,

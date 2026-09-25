@@ -40,7 +40,7 @@ export function ShareDialog({ excursionId, open, onClose }: { excursionId: strin
         <p className="text-ink-2">Le partage nécessite un compte (mode connecté). En démonstration, rien ne peut être partagé.</p>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-ink-2">Le lien donne accès en lecture seule aux étapes. Vous pouvez le révoquer à tout moment. Vos notes et visites ne sont jamais partagées.</p>
+          <p className="text-sm text-ink-2">Le lien donne accès en lecture seule aux étapes. Vous pouvez le révoquer à tout moment. Seul le mode de transport accompagne les étapes : vos notes, visites, budget, besoins (accessibilité, régimes) et la composition du groupe ne sont jamais partagés.</p>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[var(--coral)]" checked={includeDate} onChange={(e) => setIncludeDate(e.target.checked)} />
             <span>

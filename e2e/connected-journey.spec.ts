@@ -83,6 +83,41 @@ test.describe("parcours de recette — mode connecté (Supabase local)", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("revenir sur l'onglet ne réaffiche pas un état périmé", async ({ page }) => {
+    await page.goto("/connexion");
+    await page.getByLabel("Adresse e-mail").fill(alice);
+    await page.getByLabel(/Mot de passe/).fill(password);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+    await expect(page).toHaveURL(/\/carte/);
+    // Modification faite APRÈS le démarrage de l'application.
+    await page.getByRole("combobox", { name: /Rechercher/ }).fill("vieux lyon");
+    await page.getByRole("option", { name: /Vieux Lyon/ }).click();
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+    const saveDialog = page.getByRole("dialog", { name: "Enregistrer dans une collection" });
+    await saveDialog.getByRole("checkbox", { name: /Favoris/ }).click();
+    await expect(saveDialog.getByRole("checkbox", { name: /Favoris/ })).toHaveAttribute("aria-checked", "true");
+    await saveDialog.getByRole("button", { name: "Fermer" }).click();
+    await expect(page.getByRole("button", { name: "Enregistré", exact: true })).toBeVisible();
+    // L'onglet passe en arrière-plan puis revient : Supabase Auth réémet SIGNED_IN.
+    // Le compte n'a pas changé : l'application ne doit ni redémarrer ni recharger son état.
+    let reboots = 0;
+    page.on("request", (r) => {
+      if (r.url().includes("/api/catalog")) reboots++;
+    });
+    await page.evaluate(async () => {
+      const setVisibility = (value: "hidden" | "visible") => {
+        Object.defineProperty(document, "visibilityState", { value, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+      };
+      setVisibility("hidden");
+      await new Promise((r) => setTimeout(r, 200));
+      setVisibility("visible");
+    });
+    await page.waitForTimeout(2500);
+    expect(reboots).toBe(0);
+    await expect(page.getByRole("button", { name: "Enregistré", exact: true })).toBeVisible();
+  });
+
   test("un autre compte ne voit rien des données du premier", async ({ page }) => {
     await signUp(page, bob);
     await page.goto("/profil");

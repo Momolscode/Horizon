@@ -47,21 +47,35 @@ export async function respondFriend(client: PoolClient, userId: string, friendsh
   if (res.rowCount === 0) throw new SocialError("Demande introuvable.", 404);
 }
 
+/**
+ * Retire une relation. Un refus ne peut être effacé que par la personne qui a refusé :
+ * sinon le demandeur pourrait supprimer le refus et redemander en boucle.
+ */
 export async function removeFriendship(client: PoolClient, userId: string, friendshipId: string) {
-  const res = await client.query(`delete from public.friendships where id = $1 and $2 in (requester_id, addressee_id) returning id`, [friendshipId, userId]);
+  const res = await client.query(
+    `delete from public.friendships
+      where id = $1 and (($2 = addressee_id) or ($2 = requester_id and status <> 'declined'))
+      returning id`,
+    [friendshipId, userId],
+  );
   if (res.rowCount === 0) throw new SocialError("Relation introuvable.", 404);
 }
 
+/**
+ * Blocage par pseudonyme. Un pseudonyme inconnu est ignoré silencieusement (même
+ * réponse qu'un blocage réussi) : la route ne sert pas à tester l'existence d'un compte.
+ */
 export async function blockUser(client: PoolClient, userId: string, pseudonym: string) {
   const target = await findByPseudonym(client, pseudonym);
-  if (!target || target === userId) throw new SocialError("Pseudonyme introuvable.", 404);
+  if (!target) return;
+  if (target === userId) throw new SocialError("Vous ne pouvez pas vous bloquer vous-même.", 400);
   await client.query(`insert into public.blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, [userId, target]);
   await client.query(`delete from public.friendships where least(requester_id, addressee_id) = least($1::uuid, $2::uuid) and greatest(requester_id, addressee_id) = greatest($1::uuid, $2::uuid)`, [userId, target]);
 }
 
 export async function unblockUser(client: PoolClient, userId: string, pseudonym: string) {
   const target = await findByPseudonym(client, pseudonym);
-  if (!target) throw new SocialError("Pseudonyme introuvable.", 404);
+  if (!target) return;
   await client.query(`delete from public.blocks where blocker_id = $1 and blocked_id = $2`, [userId, target]);
 }
 

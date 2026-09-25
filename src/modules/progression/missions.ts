@@ -42,7 +42,7 @@ export const MISSIONS: MissionDefinition[] = [
     id: "tresor-gratuit",
     period: "weekly",
     title: "Trésor gratuit",
-    description: "Visitez cette semaine un lieu en accès libre : parc, point de vue, place, plage.",
+    description: "Visitez cette semaine un lieu en accès libre encore jamais visité : parc, point de vue, place, plage.",
     criteria: { type: "free_place_visited", count: 1 },
     xp: 15,
     safetyReviewed: true,
@@ -51,7 +51,7 @@ export const MISSIONS: MissionDefinition[] = [
     id: "deux-univers",
     period: "weekly",
     title: "Deux univers",
-    description: "Visitez cette semaine deux lieux de catégories différentes.",
+    description: "Visitez cette semaine deux nouveaux lieux de catégories différentes.",
     criteria: { type: "distinct_categories_visited", count: 2 },
     xp: 15,
     safetyReviewed: true,
@@ -114,7 +114,15 @@ export function evaluateMission(mission: MissionDefinition, inputs: MissionInput
   const byId = new Map(catalog.places.map((p) => [p.id, p]));
   // Heure d'enregistrement (serveur en mode connecté), pas la date déclarée : une visite
   // antidatée ou postdatée ne peut pas faire compter une période.
-  const realVisits = snapshot.visits.filter((v) => VISIT_RULES[v.status].countsAsRealVisit && inPeriod(v.createdAt, mission.period, key, timeZone));
+  // Seule la PREMIÈRE visite réelle d'un lieu compte : redéclarer chaque semaine un lieu
+  // déjà visité ne fait pas progresser les missions (pas d'XP récurrente sans nouveauté).
+  const firstRealVisit = new Map<string, (typeof snapshot.visits)[number]>();
+  for (const v of snapshot.visits) {
+    if (!VISIT_RULES[v.status].countsAsRealVisit) continue;
+    const known = firstRealVisit.get(v.placeId);
+    if (!known || v.createdAt < known.createdAt) firstRealVisit.set(v.placeId, v);
+  }
+  const realVisits = [...firstRealVisit.values()].filter((v) => inPeriod(v.createdAt, mission.period, key, timeZone));
   let progress = 0;
   switch (mission.criteria.type) {
     case "excursion_prepared":

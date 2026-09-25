@@ -151,6 +151,10 @@ export async function adminAdjust(
   if (!Number.isInteger(input.amount) || input.amount === 0 || Math.abs(input.amount) > 10_000) throw new ProgressionError("Montant invalide.", 400);
   if (input.note.trim().length < 5) throw new ProgressionError("Motif obligatoire (5 caractères minimum).", 400);
   const refId = input.adjustmentId ?? randomUUID();
+  // Sérialise avec les visites, missions et autres corrections du même compte : deux
+  // retraits concurrents ne peuvent pas passer tous deux le contrôle de solde.
+  const locked = await client.query(`select 1 from public.profiles where id = $1 for update`, [userId]);
+  if (!locked.rowCount) throw new ProgressionError("Compte introuvable.", 404);
   const res = await client.query(
     `insert into public.xp_ledger (id, user_id, kind, amount, reason, ref_id, unique_key, created_by, note)
      values ($1, $2, $3, $4, 'admin_adjustment', $5, $6, $7, $8)

@@ -78,15 +78,19 @@ test.describe.serial("P1 — mode connecté", () => {
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Accès réservé" })).toBeVisible();
 
+    // Texte unique par exécution : la base locale n'est pas réinitialisée entre deux lancements.
+    const reviewText = `Des ruelles magnifiques, à parcourir tôt le matin (${stamp}).`;
     await page.goto("/lieux/lyon-vieux-lyon");
-    await page.getByLabel("Votre avis").fill("Des ruelles magnifiques, à parcourir tôt le matin.");
+    await page.getByLabel("Votre avis").fill(reviewText);
     await page.getByRole("button", { name: "Envoyer" }).click();
     await expect(page.getByText(/en attente de modération/)).toBeVisible();
 
     const visitorContext = await browser.newContext();
     const visitor = await visitorContext.newPage();
     await visitor.goto("/lieux/lyon-vieux-lyon");
-    await expect(visitor.getByText("Aucun avis publié pour l'instant.")).toBeVisible();
+    await expect(visitor.getByRole("heading", { name: "Avis", exact: true })).toBeVisible();
+    await expect(visitor.getByText("Chargement…")).toBeHidden();
+    await expect(visitor.getByText(reviewText)).toHaveCount(0);
 
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
@@ -96,14 +100,14 @@ test.describe.serial("P1 — mode connecté", () => {
     await expect(adminPage.getByRole("heading", { name: "Administration" })).toBeVisible();
     await expect(adminPage.getByText(/Données insuffisantes/).first()).toBeVisible();
     await adminPage.getByRole("tab", { name: "Avis" }).click();
-    const pending = adminPage.getByRole("listitem").filter({ hasText: "Des ruelles magnifiques" });
+    const pending = adminPage.getByRole("listitem").filter({ hasText: reviewText });
     await pending.getByRole("button", { name: "Publier" }).click();
     await expect(adminPage.getByText("Avis publié.")).toBeVisible();
     await adminPage.getByRole("tab", { name: "Journal" }).click();
     await expect(adminPage.getByText("review.publish").first()).toBeVisible();
 
     await visitor.reload();
-    await expect(visitor.getByText("Des ruelles magnifiques, à parcourir tôt le matin.")).toBeVisible();
+    await expect(visitor.getByText(reviewText)).toBeVisible();
     await visitorContext.close();
     await adminContext.close();
   });

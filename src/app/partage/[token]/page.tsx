@@ -47,7 +47,7 @@ export default async function SharedExcursionPage({ params }: PageProps<"/partag
   }
   const catalog = (await getCachedCatalog(getPool())).catalog;
   const destination = catalog.destinations.find((d) => d.id === shared.destinationId);
-  const prefs = { ...DEFAULT_PREFERENCES, ...(shared.preferences as Partial<typeof DEFAULT_PREFERENCES>) };
+  const prefs = { ...DEFAULT_PREFERENCES, transport: shared.preferences.transport };
   const schedule = scheduleExcursion(
     { date: shared.date ?? new Date().toISOString().slice(0, 10), startTime: shared.startTime, durationMinutes: shared.durationMinutes, steps: shared.steps, party: prefs.party, budget: prefs.budget, transport: prefs.transport, needs: prefs.needs },
     catalog,

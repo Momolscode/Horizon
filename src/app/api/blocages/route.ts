@@ -4,6 +4,7 @@ import { rejectCrossSite } from "@/server/request-guard";
 import { databaseConfigured, withTransaction } from "@/server/db";
 import { getSessionUser } from "@/server/auth";
 import { blockUser, unblockUser, SocialError } from "@/server/social";
+import { rateLimit } from "@/server/rate-limit";
 
 /** Blocage (et déblocage) par pseudonyme. Bloquer supprime toute relation existante. */
 export async function POST(request: Request) {
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
   if (!databaseConfigured()) return NextResponse.json({ error: "database_not_configured" }, { status: 503 });
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!rateLimit(`blocks:${user.id}`, 30, 60 * 60 * 1000).allowed) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   const parsed = z.object({ pseudonym: z.string().min(2).max(32), action: z.enum(["block", "unblock"]) }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   try {

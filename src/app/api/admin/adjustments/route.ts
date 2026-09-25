@@ -8,7 +8,14 @@ import { adminAdjust, ProgressionError } from "@/server/progression";
 export const POST = adminRoute(
   async ({ request, admin }) => {
     const parsed = z
-      .object({ pseudonym: z.string().min(2).max(32), kind: z.enum(["xp", "points"]), amount: z.number().int(), note: z.string().min(5).max(300) })
+      .object({
+        pseudonym: z.string().min(2).max(32),
+        kind: z.enum(["xp", "points"]),
+        amount: z.number().int(),
+        note: z.string().min(5).max(300),
+        // Généré par le formulaire : un double envoi n'applique la correction qu'une fois.
+        adjustmentId: z.uuid(),
+      })
       .safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
     try {
@@ -16,7 +23,7 @@ export const POST = adminRoute(
         const target = await c.query(`select id from public.profiles where lower(pseudonym) = lower($1)`, [parsed.data.pseudonym]);
         if (!target.rowCount) throw new ProgressionError("Pseudonyme introuvable.", 404);
         const userId = String(target.rows[0].id);
-        const e = await adminAdjust(c, admin.id, userId, { kind: parsed.data.kind, amount: parsed.data.amount, note: parsed.data.note });
+        const e = await adminAdjust(c, admin.id, userId, { kind: parsed.data.kind, amount: parsed.data.amount, note: parsed.data.note, adjustmentId: parsed.data.adjustmentId });
         await audit(c, admin.id, "progression.adjust", "profile", userId, { kind: parsed.data.kind, amount: parsed.data.amount, note: parsed.data.note });
         return e;
       });

@@ -88,6 +88,7 @@ export function AdminScreen() {
     const r = await api(path, { method, body: JSON.stringify(body) });
     setMessage(r.ok ? success : `Échec (${r.status}) : ${String((r.data as Json).message ?? (r.data as Json).error ?? "erreur")}`);
     refresh();
+    return r.ok;
   };
 
   return (
@@ -120,7 +121,7 @@ export function AdminScreen() {
   );
 }
 
-type Act = (path: string, method: "PATCH" | "POST", body: Json, success: string) => Promise<void>;
+type Act = (path: string, method: "PATCH" | "POST", body: Json, success: string) => Promise<boolean>;
 
 function Overview({ counts, metrics }: { counts: Record<string, number>; metrics: Metrics }) {
   return (
@@ -230,10 +231,10 @@ function Reviews({ version, act }: { version: number; act: Act }) {
               </p>
               <p className="text-ink-2">{String(r.body)}</p>
               <div className="mt-2 flex gap-2">
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "publish" }, "Avis publié.")}>
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "publish", reviewedVersion: String(r.version) }, "Avis publié.")}>
                   Publier
                 </button>
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "reject" }, "Avis refusé.")}>
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "reject", reviewedVersion: String(r.version) }, "Avis refusé.")}>
                   Refuser
                 </button>
               </div>
@@ -328,16 +329,24 @@ function MissionsAndConfig({ version, act }: { version: number; act: Act }) {
   );
 }
 
+const emptyAdjustment = () => ({ pseudonym: "", kind: "xp", amount: 0, note: "", adjustmentId: crypto.randomUUID() });
+
 function Adjust({ act }: { act: Act }) {
-  const [form, setForm] = useState({ pseudonym: "", kind: "xp", amount: 0, note: "" });
+  // L'identifiant de correction accompagne le formulaire : un double envoi n'est appliqué qu'une fois.
+  const [form, setForm] = useState(emptyAdjustment);
+  const [pending, setPending] = useState(false);
   return (
     <Card title="Correction d'XP ou de points">
       <p className="mb-3 text-xs text-ink-3">Motif obligatoire, visible par l&apos;utilisateur dans son journal. Un solde de points ne peut pas devenir négatif.</p>
       <form
         className="grid gap-3 sm:grid-cols-2"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          void act("/api/admin/adjustments", "POST", form, "Correction enregistrée et journalisée.");
+          if (pending) return;
+          setPending(true);
+          const ok = await act("/api/admin/adjustments", "POST", form, "Correction enregistrée et journalisée.");
+          setPending(false);
+          if (ok) setForm(emptyAdjustment());
         }}
       >
         <label className="text-sm font-bold">
@@ -359,8 +368,8 @@ function Adjust({ act }: { act: Act }) {
           Motif
           <input className="field mt-1" value={form.note} minLength={5} maxLength={300} onChange={(e) => setForm({ ...form, note: e.target.value })} required />
         </label>
-        <button type="submit" className="btn btn-primary sm:col-span-2">
-          Appliquer la correction
+        <button type="submit" className="btn btn-primary sm:col-span-2" disabled={pending}>
+          {pending ? "Envoi…" : "Appliquer la correction"}
         </button>
       </form>
     </Card>

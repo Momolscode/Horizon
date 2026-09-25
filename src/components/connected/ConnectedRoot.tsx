@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createBrowserClient } from "@supabase/ssr";
 import { buildCatalogIndex, type CatalogIndex } from "@/modules/catalog/catalog";
@@ -13,6 +13,7 @@ import { AppLoading } from "../AppRoot";
 import { AuthContext, type AuthValue } from "./AuthContext";
 
 type Ready = { catalog: CatalogIndex; store: ConnectedStore; state: UserState; user: AuthValue["user"] };
+type Booted = Ready & { seq: number };
 type Problem = { title: string; problems: string[] };
 type BootResult = { kind: "ready"; ready: Ready } | { kind: "problem"; problem: Problem };
 
@@ -60,19 +61,32 @@ async function bootConnected(supabase: SupabaseClient): Promise<BootResult> {
  */
 export function ConnectedRoot({ supabaseUrl, supabaseKey, children }: { supabaseUrl: string; supabaseKey: string; children: ReactNode }) {
   const supabase = useMemo(() => createBrowserClient(supabaseUrl, supabaseKey), [supabaseUrl, supabaseKey]);
-  const [ready, setReady] = useState<Ready | null>(null);
+  const [ready, setReady] = useState<Booted | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [generation, setGeneration] = useState(0);
+  // Compte chargé par le dernier démarrage (undefined : démarrage en cours) et
+  // dernier compte annoncé par Supabase Auth. Supabase réémet SIGNED_IN à chaque
+  // retour sur l'onglet : on ne redémarre que si le compte a réellement changé.
+  const bootedUserId = useRef<string | null | undefined>(undefined);
+  const announcedUserId = useRef<string | null | undefined>(undefined);
+  const bootSeq = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    bootedUserId.current = undefined;
     void bootConnected(supabase).then((result) => {
       if (cancelled) return;
-      if (result.kind === "problem") setProblem(result.problem);
-      else {
-        setProblem(null);
-        setReady(result.ready);
+      if (result.kind === "problem") {
+        setProblem(result.problem);
+        return;
       }
+      const userId = result.ready.user?.id ?? null;
+      bootedUserId.current = userId;
+      setProblem(null);
+      // Nouvelle clé à chaque démarrage abouti : le fournisseur repart de l'état qui vient d'être lu.
+      bootSeq.current += 1;
+      setReady({ ...result.ready, seq: bootSeq.current });
+      if (announcedUserId.current !== undefined && announcedUserId.current !== userId) setGeneration((g) => g + 1);
     });
     return () => {
       cancelled = true;
@@ -80,8 +94,11 @@ export function ConnectedRoot({ supabaseUrl, supabaseKey, children }: { supabase
   }, [supabase, generation]);
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") setGeneration((g) => g + 1);
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") return;
+      const userId = session?.user.id ?? null;
+      announcedUserId.current = userId;
+      if (bootedUserId.current !== undefined && bootedUserId.current !== userId) setGeneration((g) => g + 1);
     });
     return () => data.subscription.unsubscribe();
   }, [supabase]);
@@ -101,7 +118,7 @@ export function ConnectedRoot({ supabaseUrl, supabaseKey, children }: { supabase
   if (!ready) return <AppLoading />;
   return (
     <AuthContext.Provider value={auth}>
-      <HorizonProvider key={`${ready.user?.id ?? "anon"}-${generation}`} catalog={ready.catalog} store={ready.store} initialState={ready.state} requiresAccount={!ready.user}>
+      <HorizonProvider key={`${ready.user?.id ?? "anon"}-${ready.seq}`} catalog={ready.catalog} store={ready.store} initialState={ready.state} requiresAccount={!ready.user}>
         <AppShell>{children}</AppShell>
       </HorizonProvider>
     </AuthContext.Provider>

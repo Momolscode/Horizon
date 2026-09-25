@@ -65,6 +65,17 @@ describe("missions", () => {
     expect(status.completed).toBe(false);
   });
 
+  it("ne compte pas la redéclaration d'un lieu déjà visité une semaine précédente", () => {
+    const s = visit(EMPTY_SNAPSHOT, "lyon-tete-d-or", "a");
+    const lastWeek = { ...s, visits: s.visits.map((v) => ({ ...v, createdAt: "2026-09-20T10:00:00.000Z", visitedOn: "2026-09-20" })) };
+    // Nouvelle déclaration du même parc cette semaine.
+    const again = visit(lastWeek, "lyon-tete-d-or", "b");
+    expect(again.visits).toHaveLength(2);
+    const status = evaluateMissions({ snapshot: again, catalog, excursionUpdates: [] }, NOW, TZ);
+    expect(status.find((m) => m.mission.id === "tresor-gratuit")!.completed).toBe(false);
+    expect(status.find((m) => m.mission.id === "deux-univers")!.progress).toBe(0);
+  });
+
   it("refuse une mission non accomplie ou inconnue", () => {
     const inputs = { snapshot: EMPTY_SNAPSHOT, catalog, excursionUpdates: [] };
     expect(() => planMissionClaim("trois-parcelles", inputs, NOW, TZ, idGenerator())).toThrow(/pas encore accomplie/);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withTransaction } from "@/server/db";
-import { adminRoute, audit } from "@/server/admin";
+import { adminRoute } from "@/server/admin";
+import { PlaceUpdateError, updatePlace } from "@/server/places-admin";
 import { invalidateCatalogCache } from "@/server/catalog";
 
 const PlacePatch = z
@@ -21,19 +22,12 @@ export const PATCH = adminRoute<{ id: string }>(
   async ({ request, admin, params }) => {
     const parsed = PlacePatch.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
-    const p = parsed.data;
-    const updated = await withTransaction(async (c) => {
-      const res = await c.query(
-        `update public.places set
-           status = coalesce($2, status), name = coalesce($3, name), summary = coalesce($4, summary),
-           description = coalesce($5, description), verification = coalesce($6::jsonb, verification), updated_by = $7
-         where id = $1 returning id`,
-        [params.id, p.status ?? null, p.name ?? null, p.summary ?? null, p.description ?? null, p.verification ? JSON.stringify(p.verification) : null, admin.id],
-      );
-      if (res.rowCount) await audit(c, admin.id, "place.update", "place", params.id, { fields: Object.keys(p) });
-      return res.rowCount;
-    });
-    if (!updated) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    try {
+      await withTransaction((c) => updatePlace(c, admin.id, params.id, parsed.data));
+    } catch (error) {
+      if (error instanceof PlaceUpdateError) return NextResponse.json({ error: error.status === 404 ? "not_found" : "conflict", message: error.message }, { status: error.status });
+      throw error;
+    }
     invalidateCatalogCache();
     return NextResponse.json({ ok: true });
   },

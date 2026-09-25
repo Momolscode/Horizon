@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import type { ExcursionStep } from "@/modules/excursions/types";
+import { DEFAULT_PREFERENCES, TRANSPORTS, type ExcursionStep, type Transport } from "@/modules/excursions/types";
 
 type Queryable = Pick<Pool | PoolClient, "query">;
 
@@ -14,7 +14,8 @@ export type SharedExcursion = {
   startTime: string;
   durationMinutes: number;
   steps: ExcursionStep[];
-  preferences: Record<string, unknown>;
+  /** Uniquement le mode de transport : aucune donnée personnelle du propriétaire. */
+  preferences: { transport: Transport };
 };
 
 export class ShareError extends Error {
@@ -66,8 +67,9 @@ export async function getSharedExcursion(db: Queryable, token: string): Promise<
     startTime: r.start_time,
     durationMinutes: Number(r.duration_minutes),
     steps: ((r.steps ?? []) as ExcursionStep[]).map((s) => ({ id: s.id, placeId: s.placeId, visitMinutes: s.visitMinutes, note: null })),
-    // Seules les préférences utiles au calcul sont transmises (pas de notes privées).
-    preferences: { party: prefs.party, budget: prefs.budget, transport: prefs.transport, needs: prefs.needs },
+    // Seul le mode de transport (utile au calcul des marges) est transmis : jamais les
+    // besoins (accessibilité, régimes), le budget, la composition du groupe ni les notes.
+    preferences: { transport: TRANSPORTS.includes(prefs.transport as Transport) ? (prefs.transport as Transport) : DEFAULT_PREFERENCES.transport },
   };
 }
 
@@ -78,7 +80,17 @@ export async function copyShare(client: PoolClient, userId: string, token: strin
   const res = await client.query(
     `insert into public.excursions (user_id, title, destination_id, date, start_time, duration_minutes, preferences, seed, origin, steps)
      values ($1, $2, $3, $4, $5, $6, $7, null, 'copy', $8) returning id`,
-    [userId, `Copie — ${shared.title}`.slice(0, 120), shared.destinationId, shared.date ?? tomorrow, shared.startTime, shared.durationMinutes, JSON.stringify(shared.preferences), JSON.stringify(shared.steps)],
+    [
+      userId,
+      `Copie — ${shared.title}`.slice(0, 120),
+      shared.destinationId,
+      shared.date ?? tomorrow,
+      shared.startTime,
+      shared.durationMinutes,
+      // La copie repart des préférences par défaut : rien de personnel n'est recopié.
+      JSON.stringify({ ...DEFAULT_PREFERENCES, transport: shared.preferences.transport }),
+      JSON.stringify(shared.steps),
+    ],
   );
   return String(res.rows[0].id);
 }
