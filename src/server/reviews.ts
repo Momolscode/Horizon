@@ -23,6 +23,15 @@ export async function moderateReview(
   input: { decision: "publish" | "reject"; reviewedVersion: string; reason?: string },
 ): Promise<void> {
   const status = input.decision === "publish" ? "published" : "rejected";
+  if (status === "published") {
+    // L'avis d'un établissement sur une fiche qu'il gère ou a gérée n'est jamais publié.
+    const conflict = await c.query(
+      `select 1 from public.reviews r join public.place_claims pc on pc.user_id = r.user_id and pc.place_id = r.place_id
+        where r.id = $1 and pc.status in ('approved', 'revoked')`,
+      [reviewId],
+    );
+    if (conflict.rowCount) throw new ModerationError(409, "Publication impossible : l'auteur gère ou a géré la fiche de ce lieu (conflit d'intérêts). Refusez cet avis.");
+  }
   const res = await c.query(
     `update public.reviews set status = $2, moderated_by = $3, moderated_at = now(), rejection_reason = $4
       where id = $1 and updated_at::text = $5 returning id`,

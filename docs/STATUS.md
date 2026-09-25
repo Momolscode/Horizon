@@ -1,6 +1,6 @@
 # État du projet
 
-_Mis à jour le 2026-09-25 : retrait de la gestion d'une fiche (complément de D-017)._
+_Mis à jour le 2026-09-25 : retrait de la gestion d'une fiche, avis déposés avant la revendication (compléments de D-017)._
 
 Environnement de toutes les vérifications ci-dessous :
 
@@ -19,11 +19,11 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 | Types | RÉUSSIE | `npm run typecheck` | 0 erreur |
 | Lint (règles React Compiler incluses) | RÉUSSIE | `npm run lint` | 0 erreur, 0 avertissement |
 | Tests unitaires | RÉUSSIE | `npm test` | 14 fichiers, 114 tests |
-| Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 8 fichiers, 74 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale, Mode Duo, référencement (retrait et renoncement compris) ; relancés deux fois de suite après réinitialisation, sans résidu (40 lieux restants) |
+| Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 8 fichiers, 76 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale, Mode Duo, référencement (retrait, renoncement et avis déposés avant la revendication compris) ; relancés deux fois de suite après réinitialisation, sans résidu (40 lieux restants) |
 | Build de production démo | RÉUSSIE | `npm run build:demo` | build Next sans erreur |
 | Parcours e2e démo, mobile 390×844 et ordinateur 1440×900 | RÉUSSIE | `npm run build:demo && npm run test:e2e` | 13 réussis, 1 ignoré volontairement (test propre au mobile, ignoré en projet ordinateur) |
-| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 16 tests sur Supabase local + `next dev`, dont le Duo, le référencement, le retrait de la gestion et le renoncement |
-| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 7 migrations + seed de 40 lieux |
+| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 17 tests sur Supabase local + `next dev`, dont le Duo, le référencement, le retrait de la gestion, le renoncement et l'alerte « avis déjà déposé » |
+| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 8 migrations + seed de 40 lieux |
 | Captures réelles, mobile et ordinateur | RÉUSSIE | `node scripts/screenshots.mjs http://localhost:3100 docs/screenshots` | 46 captures du mode démo dans `docs/screenshots/`, examinées une à une |
 | Captures réelles du référencement (connecté, mobile) | RÉUSSIE | `REF_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-referencing.spec.ts` | 6 captures `ref-*.jpg`, sous `next dev` (`ref-05` et `ref-06` : retrait et renoncement) |
 | Captures réelles du Mode Duo (connecté, mobile) | RÉUSSIE | `DUO_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-duo.spec.ts` | 5 captures `duo-*.jpg`, prises sous `next dev` (le bouton des outils Next est visible en bas à gauche) |
@@ -46,7 +46,7 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 - Amis : invitation par pseudonyme et acceptation.
 - Avis modéré : invisible avant publication, puis publié par un administrateur et journalisé.
 - Référencement : proposition d'un lieu, modération et publication « proposé par un membre » ; revendication (SIRET + preuve) inactive avant validation ; informations « fournies par l'établissement » ; avis refusé sans visite déclarée ; réponse de l'établissement invisible avant modération.
-- Retrait de la gestion : un administrateur retire la gestion avec un motif et l'effacement des informations ; l'établissement voit le motif, perd l'accès, et la fiche n'affiche plus rien « fourni par l'établissement » mais redevient revendicable. Renoncement par l'établissement lui-même.
+- Retrait de la gestion : un administrateur retire la gestion avec un motif et l'effacement des informations ; l'établissement voit le motif, perd l'accès, et la fiche n'affiche plus rien « fourni par l'établissement » mais redevient revendicable. Renoncement par l'établissement lui-même. Une demande venant d'une personne qui a déjà noté le lieu est signalée à l'administrateur (son avis serait retiré).
 - Mode Duo : invitation d'un ami, acceptation, co-édition, conflit d'enregistrement sans écrasement, « nous y étions », puis confirmation par l'autre qui crédite sa visite.
 
 ## Revue finale indépendante : constats et suites

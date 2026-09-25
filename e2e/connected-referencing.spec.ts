@@ -189,6 +189,31 @@ test.describe.serial("Référencement — mode connecté", () => {
     await expect(dialog.getByText("Demande envoyée.")).toBeVisible();
   });
 
+  test("l'administration signale qu'un demandeur a déjà noté le lieu (son avis serait retiré à la validation)", async ({ page, browser }) => {
+    // Le membre a laissé un avis publié sur ce lieu (test précédent), puis revendique la fiche.
+    await signIn(page, member);
+    await page.goto(`/lieux/${placeId}`);
+    await page.getByRole("button", { name: /C'est votre établissement/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Revendiquer la fiche" });
+    await expect(dialog).toContainText("Si vous avez déjà laissé un avis sur ce lieu, il sera retiré à la validation.");
+    await dialog.getByLabel(/SIRET/).fill(SIRET);
+    await dialog.getByLabel("Adresse e-mail professionnelle").fill("membre@atelier-ceramique.example");
+    await dialog.getByRole("button", { name: "Envoyer la demande" }).click();
+    await expect(dialog.getByText("Demande envoyée.")).toBeVisible();
+
+    const moderator = await adminPage(browser);
+    await moderator.goto("/admin");
+    await moderator.getByRole("tab", { name: "Revendications" }).click();
+    const pending = moderator.getByRole("region", { name: "Revendications de fiches" }).getByRole("listitem").filter({ hasText: placeName });
+    await expect(pending).toHaveCount(2); // demande du membre et nouvelle demande de l'établissement
+    const flagged = pending.filter({ hasText: "Cette personne a déposé un avis sur ce lieu" });
+    await expect(flagged).toHaveCount(1);
+    await expect(flagged).toContainText("il sera retiré si vous validez la demande");
+    await flagged.getByRole("button", { name: "Refuser" }).click();
+    await expect(moderator.getByText("Revendication refusée.")).toBeVisible();
+    await moderator.context().close();
+  });
+
   test("l'établissement renonce lui-même à gérer sa fiche", async ({ page }) => {
     // Nouvelle demande de l'établissement (test précédent) validée directement : la validation manuelle est couverte plus haut.
     const approved = await sql(

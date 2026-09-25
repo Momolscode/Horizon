@@ -11,7 +11,7 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 | Actif | État |
 |---|---|
 | Application web Next.js 16 / React 19 / TypeScript strict, PWA installable | fonctionnelle en démonstration ; mode connecté fonctionnel sur une pile Supabase **locale** |
-| Code source | environ 17 700 lignes TypeScript/TSX dans `src/` (186 fichiers, tests compris) et environ 970 lignes de migrations SQL (7 migrations), relevé du 2026-09-25 |
+| Code source | environ 17 900 lignes TypeScript/TSX dans `src/` (186 fichiers, tests compris) et environ 1 000 lignes de migrations SQL (8 migrations), relevé du 2026-09-25 |
 | Tests automatisés | unitaires (Vitest), intégration sur PostgreSQL réel, parcours Playwright démo et connectés ; résultats dans `docs/STATUS.md` |
 | Schéma de données avec sécurité au niveau des lignes (RLS) | 29 tables, attribution serveur transactionnelle et idempotente |
 | Administration | lieux, signalements, avis, propositions de lieux, revendications, réponses des établissements, missions, barèmes versionnés, corrections d'XP, journal d'audit, tableau de mesure |

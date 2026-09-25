@@ -186,21 +186,30 @@ export async function submitClaim(c: PoolClient, userId: string, input: unknown)
 
 export async function adminListClaims(c: PoolClient) {
   const res = await c.query(
-    `select pc.id, pc.place_id, pl.name as place_name, pc.siret, pc.proof_kind, pc.proof_text, pc.created_at, p.pseudonym
+    `select pc.id, pc.place_id, pl.name as place_name, pc.siret, pc.proof_kind, pc.proof_text, pc.created_at, p.pseudonym,
+            (select count(*) from public.reviews r where r.user_id = pc.user_id and r.place_id = pc.place_id and r.status <> 'rejected')::int as own_reviews
        from public.place_claims pc join public.places pl on pl.id = pc.place_id join public.profiles p on p.id = pc.user_id
       where pc.status = 'pending' order by pc.created_at limit 200`,
   );
   return res.rows;
 }
 
+export const CONFLICT_REVIEW_REASON = "Retiré : son auteur gère désormais la fiche de ce lieu (conflit d'intérêts)";
+
 export async function approveClaim(c: PoolClient, adminId: string, claimId: string): Promise<void> {
-  const res = await c.query(`select place_id from public.place_claims where id = $1 and status = 'pending' for update`, [claimId]);
+  const res = await c.query(`select place_id, user_id from public.place_claims where id = $1 and status = 'pending' for update`, [claimId]);
   if (!res.rowCount) throw new ContributionError("Demande introuvable ou déjà traitée.", 404);
   const placeId = String(res.rows[0].place_id);
   const other = await c.query(`select 1 from public.place_claims where place_id = $1 and status = 'approved'`, [placeId]);
   if (other.rowCount) throw new ContributionError("Cette fiche a déjà un établissement gestionnaire.", 409);
   await c.query(`update public.place_claims set status = 'approved', reviewed_by = $2, reviewed_at = now() where id = $1`, [claimId, adminId]);
-  await audit(c, adminId, "claim.approve", "place", placeId, { claimId });
+  // Un avis déposé avant la revendication (en attente ou publié) est retiré : l'établissement ne note pas sa fiche.
+  const withdrawn = await c.query(
+    `update public.reviews set status = 'rejected', rejection_reason = $3, moderated_by = $4, moderated_at = now()
+      where user_id = $1 and place_id = $2 and status <> 'rejected' returning id`,
+    [res.rows[0].user_id, placeId, CONFLICT_REVIEW_REASON, adminId],
+  );
+  await audit(c, adminId, "claim.approve", "place", placeId, { claimId, withdrawnReviews: withdrawn.rows.map((r) => String(r.id)) });
 }
 
 export async function rejectClaim(c: PoolClient, adminId: string, claimId: string, reason: string): Promise<void> {

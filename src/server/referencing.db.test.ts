@@ -3,11 +3,14 @@ import { asServer, asUser, createUser, deleteUsers, pgErrorCode, pool } from "@/
 import { COMMUNITY_SOURCE_ID, type Proposal } from "@/modules/catalog/contributions";
 import { loadCatalogFromDb } from "./catalog";
 import { recordVisit } from "./progression";
+import { moderateReview } from "./reviews";
 import {
   adminListManagers,
   adminListProposals,
   approveClaim,
   approveProposal,
+  adminListClaims,
+  CONFLICT_REVIEW_REASON,
   ContributionError,
   managedReviews,
   moderateReply,
@@ -338,5 +341,92 @@ describe("revendication par un professionnel", () => {
         expect(mine.claims.find((c) => c.id === again)).toMatchObject({ status: "revoked", revoked_by_self: true });
       });
     });
+  });
+});
+
+describe("avis déposé avant la revendication", () => {
+  let owner: string;
+  const today = () => new Date().toISOString().slice(0, 10);
+  const newPlace = async (name: string, lat: number, lng: number) => {
+    const { id } = await asServer((c) => submitProposal(c, member, baseProposal({ name: `${name} ${stamp}`, category: "outdoor", location: { lat, lng } }), true));
+    const place = await asServer((c) => approveProposal(c, admin, id));
+    createdPlaces.push(place);
+    return place;
+  };
+  const reviewAsUser = async (userId: string, place: string, body: string) => {
+    const catalog = (await loadCatalogFromDb(pool)).catalog;
+    await asServer((c) => recordVisit(c, userId, { placeId: place, requestedStatus: "declared", visitedOn: today(), idempotencyKey: `ref-own-${place}-${userId}`, position: null, note: null }, catalog));
+    return asUser(userId, async (c) => {
+      const res = await c.query(`insert into public.reviews (place_id, rating, body) values ($1, 5, $2) returning id`, [place, body]);
+      await c.query("commit");
+      return String(res.rows[0].id);
+    });
+  };
+  const version = async (reviewId: string) => String((await pool.query(`select updated_at::text as v from public.reviews where id = $1`, [reviewId])).rows[0].v);
+  const publicIds = async (place: string) => (await asUser(null, async (c) => (await c.query(`select id from public.published_reviews($1)`, [place])).rows)).map((r) => String(r.id));
+
+  beforeAll(async () => {
+    owner = await createUser("ref-owner");
+    users.push(owner);
+  });
+
+  it("la validation retire l'avis publié du demandeur ; il ne peut ni le modifier, ni être republié, ni s'afficher", async () => {
+    const place = await newPlace("Tyrolienne Fourvière", 45.758, 4.815);
+    const review = await reviewAsUser(owner, place, "Sensations garanties, je recommande vivement !");
+    const reviewVersion = await version(review);
+    await asServer((c) => moderateReview(c, admin, review, { decision: "publish", reviewedVersion: reviewVersion }));
+    expect(await publicIds(place)).toContain(review);
+
+    const claim = await asServer((c) => submitClaim(c, owner, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@tyrolienne.example" }));
+    expect((await asServer((c) => adminListClaims(c))).find((r) => r.id === claim)).toMatchObject({ own_reviews: 1 });
+    await asServer((c) => approveClaim(c, admin, claim));
+
+    expect((await pool.query(`select status, rejection_reason, moderated_by from public.reviews where id = $1`, [review])).rows[0]).toMatchObject({
+      status: "rejected",
+      rejection_reason: CONFLICT_REVIEW_REASON,
+      moderated_by: admin,
+    });
+    expect(await publicIds(place)).not.toContain(review);
+    const log = (await pool.query(`select details from public.admin_audit_log where action = 'claim.approve' and target_id = $1`, [place])).rows;
+    expect(log[0]!.details).toMatchObject({ claimId: claim, withdrawnReviews: [review] });
+
+    // Modifier son avis le renverrait en modération : refusé par la base.
+    await asUser(owner, async (c) => {
+      await expect(c.query(`update public.reviews set body = 'Avis corrigé, toujours excellent.', status = 'pending' where id = $1`, [review])).rejects.toMatchObject({
+        code: "23514",
+        message: expect.stringContaining("gère ou a gérée"),
+      });
+    });
+    // Même remis en attente par une écriture directe, la modération refuse de le publier…
+    await pool.query(`update public.reviews set status = 'pending' where id = $1`, [review]);
+    await expect(asServer(async (c) => moderateReview(c, admin, review, { decision: "publish", reviewedVersion: await version(review) }))).rejects.toMatchObject({ status: 409 });
+    // … et, publié malgré tout, il n'apparaît pas.
+    await pool.query(`update public.reviews set status = 'published' where id = $1`, [review]);
+    expect(await publicIds(place)).not.toContain(review);
+
+    // Après un retrait de la gestion, toujours rien.
+    await asServer((c) => revokeClaim(c, admin, claim, { reason: "Fin d'activité", removeReplies: false, clearInfo: false }));
+    expect(await publicIds(place)).not.toContain(review);
+    await asUser(owner, async (c) => {
+      expect(await pgErrorCode(c.query(`update public.reviews set body = 'Maintenant que je ne gère plus…', status = 'pending' where id = $1`, [review]))).toBe("23514");
+    });
+  });
+
+  it("un avis encore en attente est retiré aussi ; les avis des autres visiteurs ne sont pas touchés", async () => {
+    const place = await newPlace("Accrobranche Parilly", 45.748, 4.852);
+    const own = await reviewAsUser(owner, place, "Parcours très bien entretenus, bravo.");
+    const other = await reviewAsUser(guest, place, "Bon moment en famille, personnel attentif.");
+    // Le contrôle ne vise que l'établissement : un autre visiteur modifie toujours son avis en attente.
+    await asUser(guest, async (c) => {
+      expect((await c.query(`update public.reviews set body = 'Bon moment en famille, personnel très attentif.' where id = $1`, [other])).rowCount).toBe(1);
+      await c.query("commit");
+    });
+    const otherVersion = await version(other);
+    await asServer((c) => moderateReview(c, admin, other, { decision: "publish", reviewedVersion: otherVersion }));
+    const claim = await asServer((c) => submitClaim(c, owner, { placeId: place, siret: SIRET, proofKind: "document", proofText: "Extrait Kbis au nom de la société" }));
+    await asServer((c) => approveClaim(c, admin, claim));
+    expect((await pool.query(`select status from public.reviews where id = $1`, [own])).rows[0]).toMatchObject({ status: "rejected" });
+    expect((await pool.query(`select status from public.reviews where id = $1`, [other])).rows[0]).toMatchObject({ status: "published" });
+    expect(await publicIds(place)).toEqual([other]);
   });
 });

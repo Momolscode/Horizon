@@ -50,7 +50,7 @@ export function ClaimDialog({ place, open, onClose }: { place: Place; open: bool
           }}
         >
           <p className="text-ink-2">
-            Vous représentez <strong>{place.name}</strong> ? Après vérification, vous pourrez corriger ses informations pratiques (affichées « fournies par l&apos;établissement ») et répondre gratuitement aux avis. Vous ne pourrez ni modifier, ni supprimer, ni noter les avis.
+            Vous représentez <strong>{place.name}</strong> ? Après vérification, vous pourrez corriger ses informations pratiques (affichées « fournies par l&apos;établissement ») et répondre gratuitement aux avis. Vous ne pourrez ni modifier, ni supprimer, ni noter les avis. Si vous avez déjà laissé un avis sur ce lieu, il sera retiré à la validation.
           </p>
           <label className="block font-bold">
             SIRET de l&apos;établissement

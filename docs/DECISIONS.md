@@ -164,6 +164,10 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - dans les deux cas, les réponses en attente de l'ancien gestionnaire sont refusées ; il perd aussitôt tout droit sur la fiche et ne peut toujours pas la noter ;
   - le nouveau gestionnaire peut remplacer une réponse laissée par un ancien gestionnaire (nouvelle modération) ;
   - pas de transfert direct : un transfert passe par une nouvelle revendication, validée manuellement.
+- **Avis déposés avant la revendication (complément du 2026-09-25, migration `20260925000800_claim_review_conflict.sql`) :**
+  - à la validation d'une revendication, les avis du demandeur sur la fiche (en attente ou publiés) sont refusés avec le motif « conflit d'intérêts ». L'administrateur en est averti sur la demande, et le demandeur dans la fenêtre de revendication ;
+  - la base empêche le retour d'un tel avis : le déclencheur `check_review_eligibility` s'applique aussi aux modifications par l'auteur, la modération refuse de le publier (409), et `published_reviews` ne renvoie jamais l'avis d'un établissement qui gère ou a géré la fiche ;
+  - l'avis n'est pas supprimé (trace conservée) et reste masqué après un retrait de la gestion.
 - **Écartés :** mise en avant « sponsorisée », présence payée dans « Surprends-nous », réponses aux avis payantes, vérification par SMS ou courrier (coût), fiches hors destinations.
 - **Tests requis :**
   - modération des propositions et détection des doublons ;
@@ -171,7 +175,8 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - un professionnel ne peut ni toucher aux avis ni noter sa fiche ;
   - un avis est refusé sans visite déclarée ;
   - le classement ignore tout statut payant ;
-  - après un retrait ou un renoncement : droits perdus, fiche revendicable, options d'effacement respectées, ancien gestionnaire toujours privé d'avis.
+  - après un retrait ou un renoncement : droits perdus, fiche revendicable, options d'effacement respectées, ancien gestionnaire toujours privé d'avis ;
+  - un avis déposé avant la revendication est retiré à la validation et ne peut plus être modifié, republié ni affiché.
 
 ## D-018 — Cache du catalogue revalidé par empreinte
 

@@ -305,6 +305,11 @@ function PendingClaims({ claims, act }: { claims: Array<Json>; act: Act }) {
                 </a>{" "}
                 · preuve ({c.proof_kind === "email_domain" ? "e-mail du domaine" : "justificatif"}) : {String(c.proof_text)}
               </p>
+              {Number(c.own_reviews) > 0 ? (
+                <p className="mt-1 text-xs font-bold text-warn-ink">
+                  Cette personne a déposé un avis sur ce lieu : il sera retiré si vous validez la demande (un établissement ne note pas sa fiche).
+                </p>
+              ) : null}
               <div className="mt-2 flex gap-2">
                 <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "approve" }, "Revendication validée.")}>
                   Valider
@@ -458,8 +463,14 @@ function Reviews({ version, act }: { version: number; act: Act }) {
                 {Number(r.reports) ? ` · ${r.reports} signalement(s)` : ""}
               </p>
               <p className="text-ink-2">{String(r.body)}</p>
+              {r.author_manages ? <p className="mt-1 text-xs font-bold text-warn-ink">L&apos;auteur gère ou a géré la fiche de ce lieu : cet avis ne peut pas être publié (conflit d&apos;intérêts).</p> : null}
               <div className="mt-2 flex gap-2">
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "publish", reviewedVersion: String(r.version) }, "Avis publié.")}>
+                <button
+                  type="button"
+                  className="btn btn-ghost min-h-9 px-3 text-xs"
+                  disabled={Boolean(r.author_manages)}
+                  onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "publish", reviewedVersion: String(r.version) }, "Avis publié.")}
+                >
                   Publier
                 </button>
                 <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/reviews/${r.id}`, "PATCH", { decision: "reject", reviewedVersion: String(r.version) }, "Avis refusé.")}>

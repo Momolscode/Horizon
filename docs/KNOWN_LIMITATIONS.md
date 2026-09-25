@@ -100,7 +100,7 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - un ancien gestionnaire ne peut toujours pas noter la fiche, même après un retrait. C'est un choix de prudence (conflit d'intérêts) ; il n'existe aucune procédure de levée ;
   - la provenance des informations n'est pas enregistrée par gestionnaire. « Effacer » vise toutes les valeurs marquées « fournies par l'établissement », y compris celles d'un gestionnaire précédent retiré sans effacement. Les libellés le disent ;
   - le renoncement n'apparaît pas dans le journal d'administration. Il est tracé dans la revendication (date, auteur, motif) ;
-  - **préexistant, non corrigé :** le contrôle « pas d'auto-évaluation » ne s'applique qu'au dépôt d'un avis. Un avis déposé par une personne avant qu'elle obtienne la gestion de la fiche reste en ligne après la validation de sa revendication.
+  - un avis déposé avant la revendication est retiré à la validation (refusé, avec le motif « conflit d'intérêts » visible par son auteur). Il n'est pas supprimé, et il ne redevient pas visible après un retrait de la gestion. L'auteur n'en est prévenu que sur la fiche du lieu, sans e-mail.
 - **Propositions :**
   - uniquement dans les 4 destinations ;
   - position placée sur un fond sans rues, donc « approximative » ;

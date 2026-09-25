@@ -131,7 +131,7 @@ Circuit de modération :
 
 1. Un membre propose un lieu via `/lieux/proposer`, ce qui appelle `POST /api/propositions` (doublons probables signalés, confirmation possible).
 2. L'administrateur l'examine dans l'onglet « Propositions » de `/admin`. S'il le publie, le lieu est inséré dans `places` avec la source `contribution-membres`, non vérifié, cellule H3 calculée ; le catalogue est revalidé dans la transaction.
-3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ».
+3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ». La validation retire les avis que le demandeur avait déposés sur ce lieu (motif « conflit d'intérêts », journalisé dans `claim.approve`).
 4. L'établissement corrige ses informations depuis `/contributions` (`PATCH /api/pro/lieux/[id]`) et répond aux avis (`POST /api/pro/reponses`). Les réponses sont modérées dans l'onglet « Réponses ».
 5. Fin de gestion :
    - **Retrait par l'administrateur :** carte « Fiches gérées » de l'onglet « Revendications », via `PATCH /api/admin/revendications/[id]` avec `decision: "revoke"`, un motif et les options `clearInfo` et `removeReplies`. Le retrait est journalisé (`claim.revoke`).
