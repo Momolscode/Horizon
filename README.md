@@ -7,7 +7,7 @@ Application web mobile-first (PWA) de découverte et d'exploration :
 - une carte personnelle qui se révèle au fil des visites (parcelles H3) ;
 - « Surprends-nous », qui compose une sortie de 3 à 5 étapes ;
 - un passeport d'exploration partageable ;
-- le référencement (compte requis) : proposer un restaurant, un commerce ou une activité (publié après modération), revendiquer la fiche de son établissement, avis après visite déclarée et réponses des établissements ;
+- le référencement (compte requis) : proposer un restaurant, un commerce ou une activité (publié après modération), revendiquer la fiche de son établissement (retrait de la gestion par l'administrateur ou renoncement possible), avis après visite déclarée et réponses des établissements ;
 - le Mode Duo (compte requis) : préparer une excursion à deux avec un ami et déclarer une visite pour les deux, confirmée par l'autre.
 
 Nom provisoire : sa disponibilité et celle du domaine n'ont pas été vérifiées. Dépôt privé, aucune licence open source accordée.

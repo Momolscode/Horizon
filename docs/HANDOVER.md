@@ -94,7 +94,7 @@ Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exempl
 |---|---|---|
 | `npm run typecheck`, `npm run lint`, `npm test` | types, lint, logique pure et stockage démo | aucun |
 | `npm run build:demo && npm run test:e2e` | parcours démo, mobile (390×844) et ordinateur (1440×900) | Chromium Playwright |
-| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1, constats de la revue finale | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`) |
+| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1, constats de la revue finale | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`), **fraîchement réinitialisée** (`npm run supabase:reset`) : deux tests comptent les 40 lieux du seed, et les parcours e2e connectés ajoutent des lieux à chaque exécution |
 | `npm run test:e2e:connected` | inscription, persistance, isolation, liste d'attente, P1 | pile Supabase locale démarrée et réinitialisée |
 | `node scripts/screenshots.mjs [url] [dossier]` | captures réelles pilotées | serveur démo sur le port 3100 |
 
@@ -133,6 +133,10 @@ Circuit de modération :
 2. L'administrateur l'examine dans l'onglet « Propositions » de `/admin`. S'il le publie, le lieu est inséré dans `places` avec la source `contribution-membres`, non vérifié, cellule H3 calculée ; le catalogue est revalidé dans la transaction.
 3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ».
 4. L'établissement corrige ses informations depuis `/contributions` (`PATCH /api/pro/lieux/[id]`) et répond aux avis (`POST /api/pro/reponses`). Les réponses sont modérées dans l'onglet « Réponses ».
+5. Fin de gestion :
+   - **Retrait par l'administrateur :** carte « Fiches gérées » de l'onglet « Revendications », via `PATCH /api/admin/revendications/[id]` avec `decision: "revoke"`, un motif et les options `clearInfo` et `removeReplies`. Le retrait est journalisé (`claim.revoke`).
+   - **Renoncement par l'établissement :** depuis `/contributions`, via `POST /api/pro/lieux/[id]/renonciation`.
+   - Dans les deux cas, la revendication passe à `revoked` et la fiche redevient revendicable. Pour transférer une fiche, il faut retirer la gestion puis faire valider la nouvelle revendication.
 
 Le cache du catalogue est revalidé par empreinte à chaque lecture (D-018).
 

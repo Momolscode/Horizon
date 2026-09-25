@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronLeft, ShieldAlert } from "lucide-react";
 import { formatRatio, type Metrics } from "@/modules/admin/metrics";
 import { MODE } from "@/config/mode";
@@ -48,9 +48,12 @@ function useAdminData<T>(path: string | null, version: number) {
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = useId();
   return (
-    <section className="card p-4">
-      <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+    <section className="card p-4" aria-labelledby={id}>
+      <h2 id={id} className="mb-3 text-lg font-semibold">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -263,7 +266,24 @@ function Proposals({ version, act }: { version: number; act: Act }) {
 }
 
 function Claims({ version, act }: { version: number; act: Act }) {
-  const { data } = useAdminData<{ claims: Array<Json> }>("/api/admin/revendications", version);
+  const { status, data } = useAdminData<{ claims: Array<Json>; managers: Array<Json> }>("/api/admin/revendications", version);
+  if (!data) {
+    return (
+      <Card title="Revendications et fiches gérées">
+        <p className="text-sm text-ink-3">{status === -1 ? "Chargement…" : `Chargement impossible (${status || "réseau"}). Réessayez.`}</p>
+      </Card>
+    );
+  }
+  return (
+    <>
+      <PendingClaims claims={data.claims} act={act} />
+      <ManagedPlaces managers={data.managers} act={act} />
+    </>
+  );
+}
+
+function PendingClaims({ claims, act }: { claims: Array<Json>; act: Act }) {
+  const data = { claims };
   return (
     <Card title="Revendications de fiches">
       <p className="mb-3 text-xs text-ink-3">
@@ -298,6 +318,97 @@ function Claims({ version, act }: { version: number; act: Act }) {
         </ul>
       )}
     </Card>
+  );
+}
+
+function ManagedPlaces({ managers, act }: { managers: Array<Json>; act: Act }) {
+  const [revoking, setRevoking] = useState<string | null>(null);
+  return (
+    <Card title="Fiches gérées">
+      <p className="mb-3 text-xs text-ink-3">
+        Retirer la gestion rend la fiche de nouveau revendicable. L&apos;établissement ne peut plus modifier la fiche ni répondre aux avis ; ses réponses en attente sont refusées. Sans les options ci-dessous, ses informations et ses réponses publiées restent affichées. L&apos;ancien gestionnaire ne pourra toujours pas noter la fiche.
+      </p>
+      {!managers.length ? (
+        <p className="text-sm text-ink-3">Aucune fiche gérée par un établissement.</p>
+      ) : (
+        <ul className="space-y-2">
+          {managers.map((m) => {
+            const id = String(m.id);
+            return (
+              <li key={id} className="rounded-2xl border border-line p-3 text-sm">
+                <p className="font-bold">
+                  {String(m.place_name)} · géré par {String(m.pseudonym)}
+                  {m.place_status !== "published" ? ` · lieu ${String(m.place_status)}` : ""}
+                </p>
+                <p className="text-ink-2">
+                  SIRET {String(m.siret)} · validé le {m.reviewed_at ? new Date(String(m.reviewed_at)).toLocaleDateString("fr-FR") : "?"} · {m.has_info ? "informations « fournies par l'établissement » sur la fiche" : "aucune information « fournie par l'établissement »"} ·{" "}
+                  {Number(m.published_replies)} réponse{Number(m.published_replies) > 1 ? "s" : ""} publiée{Number(m.published_replies) > 1 ? "s" : ""}
+                </p>
+                {revoking === id ? (
+                  <RevokeForm
+                    manager={m}
+                    onCancel={() => setRevoking(null)}
+                    onConfirm={async (body) => {
+                      if (await act(`/api/admin/revendications/${id}`, "PATCH", { decision: "revoke", ...body }, `Gestion retirée : ${String(m.place_name)}.`)) setRevoking(null);
+                    }}
+                  />
+                ) : (
+                  <button type="button" className="btn btn-ghost mt-2 min-h-9 px-3 text-xs" onClick={() => setRevoking(id)}>
+                    Retirer la gestion…
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function RevokeForm({ manager, onCancel, onConfirm }: { manager: Json; onCancel: () => void; onConfirm: (body: { reason: string; removeReplies: boolean; clearInfo: boolean }) => Promise<void> }) {
+  const [reason, setReason] = useState("");
+  const [removeReplies, setRemoveReplies] = useState(false);
+  const [clearInfo, setClearInfo] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const sending = useRef(false); // garde synchrone contre le double envoi
+  const valid = reason.trim().length >= 3;
+  const formId = `revoke-${String(manager.id)}`;
+  return (
+    <form
+      className="mt-2 space-y-2 rounded-2xl bg-warn-soft p-3"
+      aria-label={`Retirer la gestion de ${String(manager.place_name)}`}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!valid || sending.current) return;
+        sending.current = true;
+        setBusy(true);
+        await onConfirm({ reason: reason.trim(), removeReplies, clearInfo });
+        sending.current = false;
+        setBusy(false);
+      }}
+    >
+      <label className="block text-xs font-bold" htmlFor={`${formId}-reason`}>
+        Motif (obligatoire, visible par l&apos;établissement)
+      </label>
+      <input id={`${formId}-reason`} className="field mt-1" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. : établissement fermé, changement de propriétaire…" />
+      <label className="flex min-h-9 items-center gap-2 text-xs">
+        <input type="checkbox" className="h-5 w-5" checked={clearInfo} onChange={(e) => setClearInfo(e.target.checked)} disabled={!manager.has_info} />
+        Effacer les informations marquées « fournies par l&apos;établissement » sur la fiche, y compris celles d&apos;un gestionnaire précédent (elles redeviennent « inconnues »)
+      </label>
+      <label className="flex min-h-9 items-center gap-2 text-xs">
+        <input type="checkbox" className="h-5 w-5" checked={removeReplies} onChange={(e) => setRemoveReplies(e.target.checked)} disabled={!Number(manager.published_replies)} />
+        Retirer ses réponses publiées aux avis
+      </label>
+      <div className="flex gap-2">
+        <button type="submit" className="btn btn-primary min-h-9 px-3 text-xs" disabled={!valid || busy}>
+          Confirmer le retrait
+        </button>
+        <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={onCancel} disabled={busy}>
+          Annuler
+        </button>
+      </div>
+    </form>
   );
 }
 

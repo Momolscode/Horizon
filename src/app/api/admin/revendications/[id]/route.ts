@@ -2,16 +2,30 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withTransaction } from "@/server/db";
 import { adminRoute } from "@/server/admin";
-import { approveClaim, rejectClaim } from "@/server/contributions";
+import { invalidateCatalogCache } from "@/server/catalog";
+import { approveClaim, rejectClaim, revokeClaim } from "@/server/contributions";
 import { contributionErrorResponse } from "@/server/route-helpers";
 
-/** Validation manuelle d'une revendication (SIRET contrôlé et preuve examinée par l'administrateur). */
+const Decision = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("approve") }),
+  z.object({ decision: z.literal("reject"), reason: z.string().min(3).max(300).optional() }),
+  // Retrait de la gestion d'une fiche validée : motif obligatoire, options explicites.
+  z.object({ decision: z.literal("revoke"), reason: z.string().trim().min(3).max(300), removeReplies: z.boolean(), clearInfo: z.boolean() }),
+]);
+
+/** Validation manuelle d'une revendication (SIRET contrôlé et preuve examinée), ou retrait de la gestion. */
 export const PATCH = adminRoute<{ id: string }>(
   async ({ request, admin, params }) => {
-    const parsed = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().min(3).max(300).optional() }).safeParse(await request.json().catch(() => null));
+    const parsed = Decision.safeParse(await request.json().catch(() => null));
     if (!parsed.success || !z.uuid().safeParse(params.id).success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+    const input = parsed.data;
     try {
-      await withTransaction((c) => (parsed.data.decision === "approve" ? approveClaim(c, admin.id, params.id) : rejectClaim(c, admin.id, params.id, parsed.data.reason ?? "Justificatif insuffisant")));
+      await withTransaction((c) => {
+        if (input.decision === "approve") return approveClaim(c, admin.id, params.id);
+        if (input.decision === "reject") return rejectClaim(c, admin.id, params.id, input.reason ?? "Justificatif insuffisant");
+        return revokeClaim(c, admin.id, params.id, input);
+      });
+      if (input.decision === "revoke" && input.clearInfo) invalidateCatalogCache();
       return NextResponse.json({ ok: true });
     } catch (error) {
       return contributionErrorResponse(error, "modération de revendication");

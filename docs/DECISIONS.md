@@ -157,13 +157,21 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - `published_reviews` renvoie la réponse publiée et la mention « après visite ».
   - Logique pure : `src/modules/catalog/contributions.ts` (schémas, doublons, SIRET/Luhn, construction du lieu, informations de l'établissement en `estimate` avec `by: "establishment"`).
   - Serveur : `src/server/contributions.ts`. Interface : `/lieux/proposer`, `/contributions`, revendication depuis la fiche, onglets d'administration.
+- **Retrait de la gestion (complément du 2026-09-25, migration `20260925000700_claim_revocation.sql`) :**
+  - nouveau statut `revoked` avec date, auteur et motif ; l'historique des revendications est conservé et la fiche redevient revendicable ;
+  - retrait par un administrateur : carte « Fiches gérées » de l'onglet « Revendications ». Motif obligatoire, visible par l'établissement. Deux options explicites : effacer les informations fournies par l'établissement (elles redeviennent « inconnues », jamais une valeur inventée) et retirer ses réponses publiées. Opération journalisée (`claim.revoke`) ;
+  - renoncement par l'établissement depuis `/contributions`, avec effacement facultatif de ses informations ; ses réponses publiées restent visibles ;
+  - dans les deux cas, les réponses en attente de l'ancien gestionnaire sont refusées ; il perd aussitôt tout droit sur la fiche et ne peut toujours pas la noter ;
+  - le nouveau gestionnaire peut remplacer une réponse laissée par un ancien gestionnaire (nouvelle modération) ;
+  - pas de transfert direct : un transfert passe par une nouvelle revendication, validée manuellement.
 - **Écartés :** mise en avant « sponsorisée », présence payée dans « Surprends-nous », réponses aux avis payantes, vérification par SMS ou courrier (coût), fiches hors destinations.
 - **Tests requis :**
   - modération des propositions et détection des doublons ;
   - revendication inactive sans validation de l'administrateur ;
   - un professionnel ne peut ni toucher aux avis ni noter sa fiche ;
   - un avis est refusé sans visite déclarée ;
-  - le classement ignore tout statut payant.
+  - le classement ignore tout statut payant ;
+  - après un retrait ou un renoncement : droits perdus, fiche revendicable, options d'effacement respectées, ancien gestionnaire toujours privé d'avis.
 
 ## D-018 — Cache du catalogue revalidé par empreinte
 

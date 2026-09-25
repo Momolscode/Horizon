@@ -95,7 +95,12 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - l'existence de l'établissement et la preuve sont vérifiées **manuellement** par l'administrateur ;
   - le lien vers l'Annuaire des entreprises n'a pas été vérifié (pas de réseau) ;
   - aucun fichier justificatif n'est téléversé (stockage désactivé) : l'administrateur recontacte la personne ;
-  - aucune interface ne permet de retirer la gestion d'une fiche à un établissement validé ni de la transférer : il faut une requête SQL.
+  - **retrait de la gestion :** l'administrateur peut retirer la gestion (motif obligatoire, journalisé) et l'établissement peut y renoncer. Il n'existe pas de transfert direct : le nouvel établissement revendique la fiche et passe par la validation manuelle. L'établissement n'est pas prévenu par e-mail : il découvre le retrait et son motif dans `/contributions` ;
+  - après un retrait, les réponses publiées de l'ancien gestionnaire restent visibles, sauf si l'administrateur coche « Retirer ses réponses publiées ». Un renoncement les laisse toujours visibles. Le nouveau gestionnaire peut remplacer une réponse de l'ancien, et la nouvelle réponse repasse en modération ;
+  - un ancien gestionnaire ne peut toujours pas noter la fiche, même après un retrait. C'est un choix de prudence (conflit d'intérêts) ; il n'existe aucune procédure de levée ;
+  - la provenance des informations n'est pas enregistrée par gestionnaire. « Effacer » vise toutes les valeurs marquées « fournies par l'établissement », y compris celles d'un gestionnaire précédent retiré sans effacement. Les libellés le disent ;
+  - le renoncement n'apparaît pas dans le journal d'administration. Il est tracé dans la revendication (date, auteur, motif) ;
+  - **préexistant, non corrigé :** le contrôle « pas d'auto-évaluation » ne s'applique qu'au dépôt d'un avis. Un avis déposé par une personne avant qu'elle obtienne la gestion de la fiche reste en ligne après la validation de sa revendication.
 - **Propositions :**
   - uniquement dans les 4 destinations ;
   - position placée sur un fond sans rues, donc « approximative » ;

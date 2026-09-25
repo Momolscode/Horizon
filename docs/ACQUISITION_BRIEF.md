@@ -11,11 +11,11 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 | Actif | État |
 |---|---|
 | Application web Next.js 16 / React 19 / TypeScript strict, PWA installable | fonctionnelle en démonstration ; mode connecté fonctionnel sur une pile Supabase **locale** |
-| Code source | environ 13 300 lignes TypeScript/TSX dans `src/` (145 fichiers) et environ 700 lignes de migrations SQL |
+| Code source | environ 17 700 lignes TypeScript/TSX dans `src/` (186 fichiers, tests compris) et environ 970 lignes de migrations SQL (7 migrations), relevé du 2026-09-25 |
 | Tests automatisés | unitaires (Vitest), intégration sur PostgreSQL réel, parcours Playwright démo et connectés ; résultats dans `docs/STATUS.md` |
-| Schéma de données avec sécurité au niveau des lignes (RLS) | 24 tables, attribution serveur transactionnelle et idempotente |
+| Schéma de données avec sécurité au niveau des lignes (RLS) | 29 tables, attribution serveur transactionnelle et idempotente |
 | Administration | lieux, signalements, avis, propositions de lieux, revendications, réponses des établissements, missions, barèmes versionnés, corrections d'XP, journal d'audit, tableau de mesure |
-| Référencement élargi | propositions de lieux par les membres (modérées), revendication de fiche par les établissements (SIRET + preuve, validation manuelle), avis après visite déclarée, réponses gratuites ; **aucune offre payante implémentée** |
+| Référencement élargi | propositions de lieux par les membres (modérées), revendication de fiche par les établissements (SIRET + preuve, validation manuelle), retrait ou renoncement de la gestion, avis après visite déclarée, réponses gratuites ; **aucune offre payante implémentée** |
 | Identité visuelle et illustrations génératives originales | voir `docs/ASSET_REGISTER.md` |
 | Documentation de reprise | `docs/HANDOVER.md`, `docs/DECISIONS.md`, `docs/PRODUCT_SPEC.md`, `docs/KNOWN_LIMITATIONS.md` |
 

@@ -4,6 +4,7 @@ import {
   applyEstablishmentUpdate,
   buildCommunityPlace,
   ClaimSchema,
+  clearEstablishmentData,
   destinationForPoint,
   EstablishmentUpdateSchema,
   findLikelyDuplicates,
@@ -212,8 +213,91 @@ export async function rejectClaim(c: PoolClient, adminId: string, claimId: strin
   await audit(c, adminId, "claim.reject", "place", String(res.rows[0].place_id), { claimId, reason });
 }
 
+// ———————————————————————————————— Retrait de la gestion ————————————————————————————————
+
+export async function adminListManagers(c: PoolClient) {
+  const res = await c.query(
+    `select pc.id, pc.place_id, pl.name as place_name, pl.status as place_status, pc.siret, pc.reviewed_at, p.pseudonym,
+            jsonb_path_exists(pl.practical, '$.* ? (@.by == "establishment")') or coalesce(pl.restaurant #>> '{diets,by}' = 'establishment', false) as has_info,
+            (select count(*) from public.review_replies rr join public.reviews r on r.id = rr.review_id
+              where r.place_id = pc.place_id and rr.user_id = pc.user_id and rr.status = 'published')::int as published_replies
+       from public.place_claims pc join public.places pl on pl.id = pc.place_id join public.profiles p on p.id = pc.user_id
+      where pc.status = 'approved' order by pl.name limit 500`,
+  );
+  return res.rows;
+}
+
+export type EndManagementOptions = { reason: string; removeReplies: boolean; clearInfo: boolean };
+
+/**
+ * Met fin à la gestion d'une fiche (retrait par un administrateur ou renoncement) : la revendication
+ * passe à « revoked » et la fiche redevient revendicable. Les réponses en attente de l'ancien
+ * gestionnaire sont refusées ; ses réponses publiées et les informations qu'il a fournies ne sont
+ * retirées que sur demande. L'ancien gestionnaire ne peut toujours pas noter la fiche (déclencheur).
+ */
+async function endManagement(
+  c: PoolClient,
+  claim: { id: string; placeId: string; userId: string },
+  actor: { id: string; admin: boolean },
+  options: EndManagementOptions,
+): Promise<{ rejectedPending: number; removedPublished: number; clearedFields: string[] }> {
+  await c.query(`update public.place_claims set status = 'revoked', revoked_at = now(), revoked_by = $2, revoke_reason = $3 where id = $1`, [claim.id, actor.id, options.reason]);
+  const moderator = actor.admin ? actor.id : null;
+  const rejectReplies = (status: "pending" | "published", reason: string) =>
+    c.query(
+      `update public.review_replies rr set status = 'rejected', rejection_reason = $4, moderated_by = $5, moderated_at = now()
+         from public.reviews r
+        where r.id = rr.review_id and r.place_id = $1 and rr.user_id = $2 and rr.status = $3`,
+      [claim.placeId, claim.userId, status, reason, moderator],
+    );
+  const pending = await rejectReplies("pending", "Gestion de la fiche terminée avant la modération");
+  const published = options.removeReplies ? await rejectReplies("published", "Retirée avec la gestion de la fiche") : { rowCount: 0 };
+  let clearedFields: string[] = [];
+  if (options.clearInfo) {
+    const row = await c.query(`select practical, restaurant from public.places where id = $1 for update`, [claim.placeId]);
+    if (!row.rowCount) throw new ContributionError("Lieu introuvable.", 404);
+    const { practical, restaurant, cleared } = clearEstablishmentData({ practical: row.rows[0].practical, restaurant: row.rows[0].restaurant ?? undefined });
+    if (cleared.length) {
+      await c.query(`update public.places set practical = $2, restaurant = $3, updated_by = $4 where id = $1`, [
+        claim.placeId,
+        JSON.stringify(practical),
+        restaurant ? JSON.stringify(restaurant) : null,
+        actor.id,
+      ]);
+      await assertCatalogStillValid(c);
+    }
+    clearedFields = cleared;
+  }
+  return { rejectedPending: pending.rowCount ?? 0, removedPublished: published.rowCount ?? 0, clearedFields };
+}
+
+function checkReason(reason: string): string {
+  const text = reason.trim();
+  const length = Array.from(text).length; // en caractères, comme char_length côté base
+  if (length < 3 || length > 300) throw new ContributionError("Le motif doit compter de 3 à 300 caractères.", 400);
+  return text;
+}
+
+/** Retrait par un administrateur, motivé et journalisé. */
+export async function revokeClaim(c: PoolClient, adminId: string, claimId: string, options: EndManagementOptions): Promise<void> {
+  const reason = checkReason(options.reason);
+  const res = await c.query(`select place_id, user_id from public.place_claims where id = $1 and status = 'approved' for update`, [claimId]);
+  if (!res.rowCount) throw new ContributionError("Gestion introuvable ou déjà retirée.", 404);
+  const placeId = String(res.rows[0].place_id);
+  const result = await endManagement(c, { id: claimId, placeId, userId: String(res.rows[0].user_id) }, { id: adminId, admin: true }, { ...options, reason });
+  await audit(c, adminId, "claim.revoke", "place", placeId, { claimId, reason, removeReplies: options.removeReplies, clearInfo: options.clearInfo, ...result });
+}
+
+/** Renoncement par l'établissement lui-même. Ses réponses publiées restent visibles. */
+export async function relinquishClaim(c: PoolClient, userId: string, placeId: string, options: { clearInfo: boolean }): Promise<void> {
+  const res = await c.query(`select id from public.place_claims where place_id = $1 and user_id = $2 and status = 'approved' for update`, [placeId, userId]);
+  if (!res.rowCount) throw new ContributionError("Fiche non gérée par votre compte.", 403);
+  await endManagement(c, { id: String(res.rows[0].id), placeId, userId }, { id: userId, admin: false }, { reason: "Renoncement de l'établissement", removeReplies: false, clearInfo: options.clearInfo });
+}
+
 async function assertManager(c: PoolClient, userId: string, placeId: string) {
-  const res = await c.query(`select 1 from public.place_claims where place_id = $1 and user_id = $2 and status = 'approved'`, [placeId, userId]);
+  // Verrou partagé : un retrait concurrent attend la fin de l'opération (pas de réponse orpheline).
+  const res = await c.query(`select 1 from public.place_claims where place_id = $1 and user_id = $2 and status = 'approved' for share`, [placeId, userId]);
   if (!res.rowCount) throw new ContributionError("Fiche non gérée par votre compte : la revendication doit d'abord être validée.", 403);
 }
 
@@ -251,13 +335,16 @@ export async function submitReply(c: PoolClient, userId: string, reviewId: strin
   if (text.length < 2 || text.length > 1000) throw new ContributionError("La réponse doit compter de 2 à 1 000 caractères.", 400);
   const review = await c.query(`select place_id from public.reviews where id = $1 and status = 'published'`, [reviewId]);
   if (!review.rowCount) throw new ContributionError("Avis introuvable.", 404);
-  await assertManager(c, userId, String(review.rows[0].place_id));
+  const placeId = String(review.rows[0].place_id);
+  await assertManager(c, userId, placeId);
+  // Le gestionnaire actuel peut remplacer la réponse d'un ancien gestionnaire (gestion retirée).
   const res = await c.query(
     `insert into public.review_replies (review_id, user_id, body) values ($1, $2, $3)
-     on conflict (review_id) do update set body = excluded.body, status = 'pending', rejection_reason = null, moderated_by = null, moderated_at = null
+     on conflict (review_id) do update set user_id = excluded.user_id, body = excluded.body, status = 'pending', rejection_reason = null, moderated_by = null, moderated_at = null
        where public.review_replies.user_id = excluded.user_id
+          or not exists (select 1 from public.place_claims pc where pc.place_id = $4 and pc.user_id = public.review_replies.user_id and pc.status = 'approved')
      returning review_id`,
-    [reviewId, userId, text],
+    [reviewId, userId, text, placeId],
   );
   if (!res.rowCount) throw new ContributionError("Une autre personne a déjà répondu à cet avis.", 409);
 }
@@ -292,7 +379,7 @@ export async function myContributions(c: PoolClient, userId: string) {
       [userId],
     ),
     c.query(
-      `select pc.id, pc.place_id, pl.name as place_name, pc.status, pc.rejection_reason, pc.created_at
+      `select pc.id, pc.place_id, pl.name as place_name, pc.status, pc.rejection_reason, pc.revoke_reason, pc.revoked_at, pc.revoked_by = pc.user_id as revoked_by_self, pc.created_at
          from public.place_claims pc join public.places pl on pl.id = pc.place_id where pc.user_id = $1 order by pc.created_at desc limit 100`,
       [userId],
     ),

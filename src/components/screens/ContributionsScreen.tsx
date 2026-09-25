@@ -1,15 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, MapPinPlus, MessageSquareReply, Store } from "lucide-react";
-import { PRICE_CHOICES, weeklyFromSimple, type PriceChoice } from "@/modules/catalog/contributions";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BadgeCheck, LogOut, MapPinPlus, MessageSquareReply, Store } from "lucide-react";
+import { hasEstablishmentData, PRICE_CHOICES, weeklyFromSimple, type PriceChoice } from "@/modules/catalog/contributions";
 import { WEEKDAYS, type Place } from "@/modules/catalog/schema";
 import { useHorizon } from "../providers/HorizonProvider";
 
 type Contributions = {
   proposals: Array<{ id: string; name: string; status: "pending" | "approved" | "rejected"; place_id: string | null; rejection_reason: string | null; created_at: string }>;
-  claims: Array<{ id: string; place_id: string; place_name: string; status: "pending" | "approved" | "rejected"; rejection_reason: string | null }>;
+  claims: Array<{
+    id: string;
+    place_id: string;
+    place_name: string;
+    status: "pending" | "approved" | "rejected" | "revoked";
+    rejection_reason: string | null;
+    revoke_reason: string | null;
+    revoked_by_self: boolean | null;
+  }>;
   managedPlaceIds: string[];
 };
 type ManagedReview = { id: string; rating: number; body: string; created_at: string; pseudonym: string; reply_body: string | null; reply_status: "pending" | "published" | "rejected" | null; reply_rejection: string | null };
@@ -183,6 +191,68 @@ function ManagedReviews({ placeId }: { placeId: string }) {
   );
 }
 
+function claimStatusLabel(c: Contributions["claims"][number]): string {
+  if (c.status === "pending") return "Vérification en cours";
+  if (c.status === "approved") return "Validée : vous gérez cette fiche";
+  if (c.status === "revoked") return c.revoked_by_self ? "Vous avez renoncé à gérer cette fiche" : `Gestion retirée par un administrateur : ${c.revoke_reason ?? "motif non précisé"}`;
+  return `Refusée : ${c.rejection_reason ?? "justificatif insuffisant"}`;
+}
+
+/** Renoncement à la gestion de la fiche, avec confirmation explicite. */
+function RelinquishPanel({ placeId, placeName, hasInfo, onDone }: { placeId: string; placeName: string; hasInfo: boolean; onDone: () => void }) {
+  const { toast } = useHorizon();
+  const [open, setOpen] = useState(false);
+  const [clearInfo, setClearInfo] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const sending = useRef(false); // garde synchrone contre le double envoi
+  if (!open) {
+    return (
+      <button type="button" className="btn btn-ghost text-sm" onClick={() => setOpen(true)}>
+        <LogOut size={16} aria-hidden="true" /> Ne plus gérer cette fiche…
+      </button>
+    );
+  }
+  return (
+    <div role="group" aria-labelledby={`relinquish-${placeId}`} className="space-y-3 rounded-2xl bg-warn-soft p-4">
+      <h3 id={`relinquish-${placeId}`} className="font-bold">
+        Ne plus gérer « {placeName} » ?
+      </h3>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">
+        <li>Vous ne pourrez plus modifier les informations ni répondre aux avis.</li>
+        <li>Vos réponses en attente de modération seront abandonnées ; vos réponses publiées restent visibles, sauf si un futur gestionnaire les remplace.</li>
+        <li>La fiche redevient revendicable, par vous ou par un autre établissement, après une nouvelle vérification.</li>
+        <li>Vous ne pourrez toujours pas noter ce lieu.</li>
+      </ul>
+      <label className="flex items-center gap-2 text-sm font-bold">
+        <input type="checkbox" className="h-5 w-5 accent-[var(--coral)]" checked={clearInfo} disabled={!hasInfo} onChange={(e) => setClearInfo(e.target.checked)} />
+        {hasInfo ? "Effacer aussi les informations marquées « fournies par l'établissement » (elles redeviennent inconnues)" : "Aucune information « fournie par l'établissement » à effacer"}
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={busy}
+          onClick={async () => {
+            if (sending.current) return;
+            sending.current = true;
+            setBusy(true);
+            const r = await send(`/api/pro/lieux/${placeId}/renonciation`, "POST", { clearInfo });
+            sending.current = false;
+            setBusy(false);
+            toast(r.ok ? (clearInfo ? "Vous ne gérez plus cette fiche. Vos informations sont effacées (visible après rechargement)." : "Vous ne gérez plus cette fiche.") : (r.message ?? "Opération impossible."), r.ok ? "success" : "error");
+            if (r.ok) onDone();
+          }}
+        >
+          {busy ? "Envoi…" : "Confirmer : ne plus gérer cette fiche"}
+        </button>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setOpen(false)}>
+          Annuler
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Espace contributeur et établissement : propositions, revendications, fiches gérées. */
 export function ContributionsScreen() {
   const { catalog, status, requiresAccount } = useHorizon();
@@ -260,7 +330,7 @@ export function ContributionsScreen() {
                 <Link href={`/lieux/${c.place_id}`} className="font-bold underline">
                   {c.place_name}
                 </Link>
-                <span className="text-ink-2">{c.status === "pending" ? "Vérification en cours" : c.status === "approved" ? "Validée : vous gérez cette fiche" : `Refusée : ${c.rejection_reason ?? "justificatif insuffisant"}`}</span>
+                <span className="text-ink-2">{claimStatusLabel(c)}</span>
               </li>
             ))}
           </ul>
@@ -271,21 +341,29 @@ export function ContributionsScreen() {
 
       {data?.managedPlaceIds.map((id) => {
         const place = catalog.placesById.get(id);
-        if (!place) return null;
+        const name = place?.name ?? data.claims.find((c) => c.place_id === id && c.status === "approved")?.place_name ?? id;
         return (
           <section key={id} aria-labelledby={`managed-${id}`} className="card space-y-5 p-5">
             <h2 id={`managed-${id}`} className="flex items-center gap-2 text-2xl font-semibold">
-              <BadgeCheck size={22} aria-hidden="true" className="text-green-ink" /> {place.name}
+              <BadgeCheck size={22} aria-hidden="true" className="text-green-ink" /> {name}
             </h2>
-            <div>
-              <h3 className="mb-2 font-bold">Informations pratiques</h3>
-              <EstablishmentForm place={place} />
-            </div>
-            <div>
-              <h3 className="mb-2 font-bold">Avis et réponses</h3>
-              <p className="mb-2 text-xs text-ink-3">Vous pouvez répondre gratuitement à chaque avis ; la réponse est publiée après modération. Vous ne pouvez ni modifier, ni supprimer, ni noter les avis de votre établissement.</p>
-              <ManagedReviews placeId={id} />
-            </div>
+            {place ? (
+              <>
+                <div>
+                  <h3 className="mb-2 font-bold">Informations pratiques</h3>
+                  <EstablishmentForm place={place} />
+                </div>
+                <div>
+                  <h3 className="mb-2 font-bold">Avis et réponses</h3>
+                  <p className="mb-2 text-xs text-ink-3">Vous pouvez répondre gratuitement à chaque avis ; la réponse est publiée après modération. Vous ne pouvez ni modifier, ni supprimer, ni noter les avis de votre établissement.</p>
+                  <ManagedReviews placeId={id} />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-ink-2">Cette fiche n&apos;est pas publiée actuellement : ses informations et ses avis ne sont pas modifiables ici.</p>
+            )}
+            {/* Lieu non publié : le contenu n'est pas lisible ici, l'effacement reste proposé (sans effet s'il n'y a rien). */}
+            <RelinquishPanel placeId={id} placeName={name} hasInfo={place ? hasEstablishmentData(place) : true} onDone={refresh} />
           </section>
         );
       })}

@@ -4,6 +4,7 @@ import { buildCatalogIndex } from "./catalog";
 import {
   applyEstablishmentUpdate,
   buildCommunityPlace,
+  clearEstablishmentData,
   COMMUNITY_SOURCE_ID,
   ClaimSchema,
   destinationForPoint,
@@ -119,6 +120,28 @@ describe("revendication et informations de l'établissement", () => {
     const cleared = applyEstablishmentUpdate(updated, { website: null, price: "unknown", openingHours: null, bookingMode: "unknown" }, "2026-09-27");
     expect(cleared.practical.price.status).toBe("unknown");
     expect(cleared.practical.openingHours.status).toBe("unknown");
+  });
+
+  it("retrait de la gestion : efface seulement les valeurs fournies par l'établissement", () => {
+    const place = buildCommunityPlace(proposal, { id: "lyon-cordonnerie", destination: lyon, approvedOn: "2026-09-25" });
+    const hours = weeklyFromSimple({ tue: { open: "09:00", close: "18:00" } });
+    const updated = applyEstablishmentUpdate(place, { website: "https://cordonnerie.example", price: "lte30", openingHours: hours, bookingMode: "none" }, "2026-09-26");
+    const { cleared: fields, ...data } = clearEstablishmentData(updated);
+    const cleared = { ...updated, ...data };
+    expect(fields.sort()).toEqual(["booking", "openingHours", "price", "website"]);
+    for (const f of fields) expect(cleared.practical[f as keyof typeof cleared.practical]).toEqual({ status: "unknown" });
+    // Les valeurs éditoriales (non fournies par l'établissement) sont conservées telles quelles.
+    expect(cleared.practical.visitMinutes).toEqual(updated.practical.visitMinutes);
+    expect(cleared.practical.accessibility).toEqual(updated.practical.accessibility);
+    expect(practicalLines(cleared, lyon).some((l) => l.certainty === "establishment")).toBe(false);
+    // Sans valeur fournie par l'établissement : rien à effacer.
+    expect(clearEstablishmentData(place).cleared).toEqual([]);
+    const restaurant = catalog.places.find((p) => p.destinationId === "lyon" && p.restaurant)!;
+    const untouched = clearEstablishmentData(restaurant);
+    expect(untouched).toEqual({ practical: restaurant.practical, restaurant: restaurant.restaurant, cleared: [] });
+    // Régimes déclarés par l'établissement : effacés aussi.
+    const declared = { ...restaurant, restaurant: { ...restaurant.restaurant!, diets: { status: "estimate" as const, value: ["vegetarian" as const], note: "Fourni par l'établissement", by: "establishment" as const } } };
+    expect(clearEstablishmentData(declared)).toMatchObject({ cleared: ["diets"], restaurant: { diets: { status: "unknown" } } });
   });
 });
 

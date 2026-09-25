@@ -4,7 +4,8 @@ import { signIn, signUp, sql } from "./connected-helpers";
 /**
  * Référencement élargi (D-017) contre Supabase local : proposition d'un lieu, modération,
  * revendication par l'établissement, informations « fournies par l'établissement »,
- * avis après visite déclarée et réponse de l'établissement.
+ * avis après visite déclarée, réponse de l'établissement, retrait de la gestion par un
+ * administrateur et renoncement par l'établissement.
  */
 const stamp = Date.now();
 const member = `ref-member-${stamp}@example.test`;
@@ -147,5 +148,66 @@ test.describe.serial("Référencement — mode connecté", () => {
     await shot(memberPage, "ref-04-avis-et-reponse");
     await moderator.context().close();
     await memberContext.close();
+  });
+
+  test("un administrateur retire la gestion de la fiche, avec effacement des informations fournies", async ({ page, browser }) => {
+    const moderator = await adminPage(browser);
+    await moderator.goto("/admin");
+    await moderator.getByRole("tab", { name: "Revendications" }).click();
+    const managed = moderator.getByRole("region", { name: "Fiches gérées" }).getByRole("listitem").filter({ hasText: placeName });
+    await expect(managed).toContainText("informations « fournies par l'établissement » sur la fiche");
+    await expect(managed).toContainText("1 réponse publiée");
+    await managed.getByRole("button", { name: "Retirer la gestion…" }).click();
+    const form = moderator.getByRole("form", { name: `Retirer la gestion de ${placeName}` });
+    await expect(form.getByRole("button", { name: "Confirmer le retrait" })).toBeDisabled();
+    await form.getByLabel(/Motif/).fill("Changement de propriétaire");
+    await form.getByLabel(/Effacer les informations marquées/).check();
+    if (SHOTS) await form.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await shot(moderator, "ref-05-retrait-gestion");
+    await form.getByRole("button", { name: "Confirmer le retrait" }).click();
+    await expect(moderator.getByText(`Gestion retirée : ${placeName}.`)).toBeVisible();
+    await expect(moderator.getByRole("region", { name: "Fiches gérées" }).getByText(placeName)).toHaveCount(0);
+    await moderator.context().close();
+
+    await signIn(page, pro);
+    await page.goto("/contributions");
+    await expect(page.getByText("Gestion retirée par un administrateur : Changement de propriétaire")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enregistrer les informations" })).toHaveCount(0);
+
+    // Informations effacées : la fiche ne montre plus rien « fourni par l'établissement » ; la réponse publiée reste.
+    await page.goto(`/lieux/${placeId}`);
+    await expect(page.getByRole("heading", { name: placeName, level: 1 })).toBeVisible();
+    await expect(page.getByText("Fourni par l'établissement")).toHaveCount(0);
+    await expect(page.getByText("https://atelier-ceramique.example")).toHaveCount(0);
+    await expect(page.getByText("Réponse de l'établissement")).toBeVisible();
+    // La fiche est de nouveau revendicable : une nouvelle demande est acceptée (409 « déjà gérée » sinon).
+    await page.getByRole("button", { name: /C'est votre établissement/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Revendiquer la fiche" });
+    await dialog.getByLabel(/SIRET/).fill(SIRET);
+    await dialog.getByLabel("Adresse e-mail professionnelle").fill("contact@atelier-ceramique.example");
+    await dialog.getByRole("button", { name: "Envoyer la demande" }).click();
+    await expect(dialog.getByText("Demande envoyée.")).toBeVisible();
+  });
+
+  test("l'établissement renonce lui-même à gérer sa fiche", async ({ page }) => {
+    // Nouvelle demande de l'établissement (test précédent) validée directement : la validation manuelle est couverte plus haut.
+    const approved = await sql(
+      `update public.place_claims set status = 'approved', reviewed_at = now()
+        where place_id = $1 and status = 'pending' and user_id = (select id from auth.users where email = $2) returning id`,
+      [placeId, pro],
+    );
+    expect(approved).toHaveLength(1);
+    await signIn(page, pro);
+    await page.goto("/contributions");
+    await expect(page.getByText("Validée : vous gérez cette fiche")).toBeVisible();
+    await page.getByRole("button", { name: "Ne plus gérer cette fiche…" }).click();
+    const panel = page.getByRole("group", { name: `Ne plus gérer « ${placeName} » ?` });
+    await expect(panel).toContainText("vos réponses publiées restent visibles");
+    if (SHOTS) await panel.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await shot(page, "ref-06-renoncement");
+    await panel.getByRole("button", { name: "Confirmer : ne plus gérer cette fiche" }).click();
+    await expect(page.getByText("Vous ne gérez plus cette fiche.")).toBeVisible();
+    await expect(page.getByText("Vous avez renoncé à gérer cette fiche")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enregistrer les informations" })).toHaveCount(0);
   });
 });

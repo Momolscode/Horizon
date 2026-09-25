@@ -4,6 +4,7 @@ import { COMMUNITY_SOURCE_ID, type Proposal } from "@/modules/catalog/contributi
 import { loadCatalogFromDb } from "./catalog";
 import { recordVisit } from "./progression";
 import {
+  adminListManagers,
   adminListProposals,
   approveClaim,
   approveProposal,
@@ -13,6 +14,8 @@ import {
   myContributions,
   rejectClaim,
   rejectProposal,
+  relinquishClaim,
+  revokeClaim,
   submitClaim,
   submitProposal,
   submitReply,
@@ -25,6 +28,7 @@ let admin: string;
 let member: string;
 let pro: string;
 let intruder: string;
+let guest: string;
 const users: string[] = [];
 const createdPlaces: string[] = [];
 
@@ -47,7 +51,8 @@ beforeAll(async () => {
   member = await createUser("ref-member");
   pro = await createUser("ref-pro");
   intruder = await createUser("ref-intruder");
-  users.push(admin, member, pro, intruder);
+  guest = await createUser("ref-guest");
+  users.push(admin, member, pro, intruder, guest);
   await pool.query(`insert into public.admins (user_id) values ($1)`, [admin]);
 });
 afterAll(async () => {
@@ -185,5 +190,153 @@ describe("revendication par un professionnel", () => {
     published = await asUser(null, async (c) => (await c.query(`select * from public.published_reviews($1)`, [placeId])).rows);
     expect(published[0]).toMatchObject({ reply_body: "Merci ! Réponse corrigée." });
     expect((await asServer((c) => managedReviews(c, pro, placeId)))[0]).toMatchObject({ reply_status: "published" });
+  });
+
+  describe("retrait de la gestion", () => {
+    const today = () => new Date().toISOString().slice(0, 10);
+    let memberReview: string;
+    let guestReview: string;
+    const publishedReplies = async () =>
+      new Map((await asUser(null, async (c) => (await c.query(`select id, reply_body from public.published_reviews($1)`, [placeId])).rows)).map((r) => [String(r.id), r.reply_body as string | null]));
+
+    beforeAll(async () => {
+      memberReview = String((await pool.query(`select id from public.reviews where place_id = $1 and user_id = $2`, [placeId, member])).rows[0].id);
+      // Deuxième avis publié (autre visiteur), auquel l'établissement répond sans que la réponse soit encore modérée.
+      const catalog = (await loadCatalogFromDb(pool)).catalog;
+      await asServer((c) => recordVisit(c, guest, { placeId, requestedStatus: "declared", visitedOn: today(), idempotencyKey: `ref-visit-guest-${stamp}`, position: null, note: null }, catalog));
+      guestReview = String((await pool.query(`insert into public.reviews (place_id, user_id, rating, body, status) values ($1, $2, 4, 'Belle balade, matériel en bon état.', 'published') returning id`, [placeId, guest])).rows[0].id);
+      await asServer((c) => submitReply(c, pro, guestReview, "Merci, au plaisir de vous revoir !"));
+    });
+
+    it("par un administrateur : motif obligatoire, droits perdus, informations effacées sur demande, réponses en attente refusées", async () => {
+      expect((await asServer((c) => adminListManagers(c))).find((m) => m.id === claimId)).toMatchObject({ place_id: placeId, has_info: true, published_replies: 1 });
+      await expect(asServer((c) => revokeClaim(c, admin, claimId, { reason: " x ", removeReplies: false, clearInfo: true }))).rejects.toMatchObject({ status: 400 });
+      await asServer((c) => revokeClaim(c, admin, claimId, { reason: "Changement de propriétaire", removeReplies: false, clearInfo: true }));
+      await expect(asServer((c) => revokeClaim(c, admin, claimId, { reason: "Changement de propriétaire", removeReplies: false, clearInfo: true }))).rejects.toMatchObject({ status: 404 });
+
+      // Plus aucun droit sur la fiche.
+      await expect(asServer((c) => updateEstablishmentInfo(c, pro, placeId, { website: null, price: "unknown", openingHours: null, bookingMode: "unknown" }))).rejects.toMatchObject({ status: 403 });
+      await expect(asServer((c) => managedReviews(c, pro, placeId))).rejects.toMatchObject({ status: 403 });
+      await expect(asServer((c) => submitReply(c, pro, memberReview, "Encore moi."))).rejects.toMatchObject({ status: 403 });
+      await expect(asServer((c) => relinquishClaim(c, pro, placeId, { clearInfo: false }))).rejects.toMatchObject({ status: 403 });
+
+      // Informations de l'établissement redevenues inconnues ; réponse en attente refusée, réponse publiée conservée.
+      const place = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === placeId)!;
+      expect(place.practical.website).toEqual({ status: "unknown" });
+      expect(place.practical.price).toEqual({ status: "unknown" });
+      expect(place.practical.booking).toEqual({ status: "unknown" });
+      const pendingReply = (await pool.query(`select status, rejection_reason from public.review_replies where review_id = $1`, [guestReview])).rows[0];
+      expect(pendingReply).toMatchObject({ status: "rejected" });
+      expect((await publishedReplies()).get(memberReview)).toBe("Merci ! Réponse corrigée.");
+
+      // Historique conservé, visible par l'établissement ; retrait journalisé.
+      const mine = await asServer((c) => myContributions(c, pro));
+      expect(mine.claims.find((c) => c.id === claimId)).toMatchObject({ status: "revoked", revoke_reason: "Changement de propriétaire", revoked_by_self: false });
+      expect(mine.managedPlaceIds).not.toContain(placeId);
+      expect((await asServer((c) => adminListManagers(c))).some((m) => m.id === claimId)).toBe(false);
+      const log = (await pool.query(`select admin_id, details from public.admin_audit_log where action = 'claim.revoke' and target_id = $1`, [placeId])).rows;
+      expect(log).toHaveLength(1);
+      expect(log[0]).toMatchObject({ admin_id: admin, details: { claimId, reason: "Changement de propriétaire", clearInfo: true, rejectedPending: 1, removedPublished: 0 } });
+
+      // Ancien gestionnaire : toujours pas d'avis sur la fiche (conflit d'intérêts).
+      // (message vérifié : le code 23514 est aussi celui de la règle « visite requise »)
+      await asUser(pro, async (c) => {
+        await expect(c.query(`insert into public.reviews (place_id, rating, body) values ($1, 5, 'Depuis que je suis parti, c''est moins bien.')`, [placeId])).rejects.toMatchObject({
+          code: "23514",
+          message: expect.stringContaining("gère ou a gérée"),
+        });
+      });
+    });
+
+    it("la fiche redevient revendicable ; le nouveau gestionnaire peut remplacer une réponse de l'ancien ; retrait avec les réponses publiées", async () => {
+      const newClaim = await asServer((c) => submitClaim(c, intruder, { placeId, siret: SIRET, proofKind: "document", proofText: "Acte de cession du fonds" }));
+      await asServer((c) => approveClaim(c, admin, newClaim));
+      await asServer((c) => updateEstablishmentInfo(c, intruder, placeId, { website: "https://kayak-nouveau.example", price: "lte15", openingHours: null, bookingMode: "none" }));
+      // La réponse publiée de l'ancien gestionnaire est remplacée (repasse en modération) ; la réponse refusée aussi.
+      await asServer((c) => submitReply(c, intruder, memberReview, "Nouvelle équipe : merci pour votre avis !"));
+      await asServer((c) => submitReply(c, intruder, guestReview, "Merci et bienvenue à nouveau."));
+      expect((await pool.query(`select user_id, status from public.review_replies where review_id = $1`, [memberReview])).rows[0]).toMatchObject({ user_id: intruder, status: "pending" });
+      for (const reply of (await asServer((c) => adminListReplies(c))).filter((r) => r.review_id === memberReview || r.review_id === guestReview)) {
+        await asServer((c) => moderateReply(c, admin, String(reply.review_id), { decision: "publish", reviewedVersion: String(reply.version) }));
+      }
+      expect((await publishedReplies()).get(guestReview)).toBe("Merci et bienvenue à nouveau.");
+
+      await asServer((c) => revokeClaim(c, admin, newClaim, { reason: "Réponses contraires aux règles", removeReplies: true, clearInfo: false }));
+      const replies = await publishedReplies();
+      expect(replies.get(memberReview)).toBeNull();
+      expect(replies.get(guestReview)).toBeNull();
+      // Sans « effacer », les informations restent affichées, datées et « fournies par l'établissement ».
+      const place = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === placeId)!;
+      expect(place.practical.website).toMatchObject({ status: "estimate", by: "establishment", value: "https://kayak-nouveau.example" });
+      await expect(asServer((c) => updateEstablishmentInfo(c, intruder, placeId, { website: null, price: "unknown", openingHours: null, bookingMode: "unknown" }))).rejects.toMatchObject({ status: 403 });
+    });
+
+    it("renoncement par l'établissement lui-même, avec effacement facultatif de ses informations", async () => {
+      const { id } = await asServer((c) => submitProposal(c, member, baseProposal({ name: `Paddle Confluence ${stamp}`, category: "outdoor", location: { lat: 45.742, lng: 4.818 } }), true));
+      const place = await asServer((c) => approveProposal(c, admin, id));
+      createdPlaces.push(place);
+      const claim = await asServer((c) => submitClaim(c, pro, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@paddle.example" }));
+      await asServer((c) => approveClaim(c, admin, claim));
+      await asServer((c) => updateEstablishmentInfo(c, pro, place, { website: "https://paddle.example", price: "lte30", openingHours: null, bookingMode: "required" }));
+      await expect(asServer((c) => relinquishClaim(c, intruder, place, { clearInfo: true }))).rejects.toMatchObject({ status: 403 });
+
+      await asServer((c) => relinquishClaim(c, pro, place, { clearInfo: true }));
+      const after = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === place)!;
+      expect(after.practical.website).toEqual({ status: "unknown" });
+      expect(after.practical.booking).toEqual({ status: "unknown" });
+      expect(after.practical.price).toEqual({ status: "unknown" });
+      const mine = await asServer((c) => myContributions(c, pro));
+      expect(mine.claims.find((c) => c.id === claim)).toMatchObject({ status: "revoked", revoke_reason: "Renoncement de l'établissement", revoked_by_self: true });
+      expect(mine.managedPlaceIds).not.toContain(place);
+      await expect(asServer((c) => relinquishClaim(c, pro, place, { clearInfo: false }))).rejects.toMatchObject({ status: 403 });
+      await expect(asServer((c) => updateEstablishmentInfo(c, pro, place, { website: null, price: "unknown", openingHours: null, bookingMode: "unknown" }))).rejects.toMatchObject({ status: 403 });
+    });
+
+    describe("fiche sans informations, concurrence et renoncement sans effacement", () => {
+      let place: string;
+      let review: string;
+      let claim: string;
+
+      beforeAll(async () => {
+        const { id } = await asServer((c) => submitProposal(c, member, baseProposal({ name: `Canoë Gerland ${stamp}`, category: "outdoor", location: { lat: 45.73, lng: 4.835 } }), true));
+        place = await asServer((c) => approveProposal(c, admin, id));
+        createdPlaces.push(place);
+        review = String((await pool.query(`insert into public.reviews (place_id, user_id, rating, body, status) values ($1, $2, 3, 'Correct, un peu d''attente au départ.', 'published') returning id`, [place, guest])).rows[0].id);
+        claim = await asServer((c) => submitClaim(c, pro, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@canoe.example" }));
+        await asServer((c) => approveClaim(c, admin, claim));
+      });
+
+      it("une réponse envoyée pendant un retrait attend sa validation, puis est refusée (403)", async () => {
+        expect((await asServer((c) => adminListManagers(c))).find((m) => m.id === claim)).toMatchObject({ has_info: false, published_replies: 0 });
+        const revoking = await pool.connect();
+        try {
+          await revoking.query("begin");
+          await revokeClaim(revoking, admin, claim, { reason: "Retrait concurrent", removeReplies: false, clearInfo: false });
+          // La réponse attend le verrou de la revendication (assertManager … for share).
+          const reply = asServer((c) => submitReply(c, pro, review, "Réponse envoyée pendant le retrait."));
+          const early = await Promise.race([reply.then(() => "fini", () => "fini"), new Promise((r) => setTimeout(() => r("en attente"), 300))]);
+          expect(early).toBe("en attente");
+          await revoking.query("commit");
+          await expect(reply).rejects.toMatchObject({ status: 403 });
+        } finally {
+          await revoking.query("rollback").catch(() => undefined);
+          revoking.release();
+        }
+        expect((await pool.query(`select 1 from public.review_replies where review_id = $1`, [review])).rowCount).toBe(0);
+      });
+
+      it("renoncement sans effacement : informations conservées, réponse en attente abandonnée", async () => {
+        const again = await asServer((c) => submitClaim(c, pro, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@canoe.example" }));
+        await asServer((c) => approveClaim(c, admin, again));
+        await asServer((c) => updateEstablishmentInfo(c, pro, place, { website: "https://canoe.example", price: "lte15", openingHours: null, bookingMode: "none" }));
+        await asServer((c) => submitReply(c, pro, review, "Merci, nous avons ajouté un second ponton."));
+        await asServer((c) => relinquishClaim(c, pro, place, { clearInfo: false }));
+        const after = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === place)!;
+        expect(after.practical.website).toMatchObject({ status: "estimate", by: "establishment", value: "https://canoe.example" });
+        expect((await pool.query(`select status, moderated_by from public.review_replies where review_id = $1`, [review])).rows[0]).toMatchObject({ status: "rejected", moderated_by: null });
+        const mine = await asServer((c) => myContributions(c, pro));
+        expect(mine.claims.find((c) => c.id === again)).toMatchObject({ status: "revoked", revoked_by_self: true });
+      });
+    });
   });
 });

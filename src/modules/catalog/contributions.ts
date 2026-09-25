@@ -229,3 +229,30 @@ export function weeklyFromSimple(days: Partial<Record<(typeof WEEKDAYS)[number],
   }
   return OpeningHoursSchema.parse({ weekly, exceptions: [] });
 }
+
+/**
+ * Efface les informations déclarées par l'établissement (retrait ou renoncement de la gestion) :
+ * chaque valeur `by: "establishment"` redevient inconnue ; les autres valeurs sont conservées.
+ * Travaille sur les colonnes `practical` et `restaurant` d'un lieu, publié ou non.
+ */
+export function clearEstablishmentData(place: Pick<Place, "practical" | "restaurant">): Pick<Place, "practical" | "restaurant"> & { cleared: string[] } {
+  const cleared: string[] = [];
+  const practical: Record<string, unknown> = { ...place.practical };
+  for (const [key, value] of Object.entries(place.practical)) {
+    if (value && value.status === "estimate" && value.by === "establishment") {
+      practical[key] = { status: "unknown" };
+      cleared.push(key);
+    }
+  }
+  let restaurant = place.restaurant;
+  if (restaurant?.diets.status === "estimate" && restaurant.diets.by === "establishment") {
+    restaurant = { ...restaurant, diets: { status: "unknown" } };
+    cleared.push("diets");
+  }
+  return { practical: PlaceSchema.shape.practical.parse(practical), restaurant: PlaceSchema.shape.restaurant.parse(restaurant), cleared };
+}
+
+/** La fiche porte-t-elle au moins une valeur « fournie par l'établissement » ? */
+export function hasEstablishmentData(place: Pick<Place, "practical" | "restaurant">): boolean {
+  return clearEstablishmentData(place).cleared.length > 0;
+}
