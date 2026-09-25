@@ -1,0 +1,39 @@
+# dépendances
+/node_modules
+/.pnp
+.pnp.*
+
+# tests
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# fichiers générés à l'installation (copie du worker MapLibre)
+/public/maplibre/
+
+# caches de scripts (téléchargements Natural Earth, base de test locale)
+/.cache/
+/.local/
+
+# divers
+.DS_Store
+*.pem
+npm-debug.log*
+
+# secrets : seul .env.example est versionné
+.env*
+!.env.example
+
+# vercel / supabase local
+.vercel
+supabase/.branches
+supabase/.temp

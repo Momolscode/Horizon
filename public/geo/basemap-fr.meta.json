@@ -1,0 +1,25 @@
+{
+  "name": "Fond simplifié France — HORIZON",
+  "source": "Natural Earth 1:10m",
+  "sourceVersion": "v5.1.2",
+  "sourceUrl": "https://github.com/nvkelso/natural-earth-vector",
+  "license": "Domaine public (Natural Earth terms of use)",
+  "licenseUrl": "https://www.naturalearthdata.com/about/terms-of-use/",
+  "attribution": "Made with Natural Earth",
+  "bbox": [
+    -6.5,
+    41,
+    10.5,
+    51.8
+  ],
+  "precisionDecimals": 4,
+  "layers": {
+    "country": 16,
+    "admin1": 266,
+    "lake": 34,
+    "river": 113,
+    "place": 58
+  },
+  "builtAt": "2026-09-25",
+  "limitations": "Fond à petite échelle (1:10 000 000) : pas de routes, pas de rues, contours approximatifs. Ne pas utiliser pour se déplacer."
+}
