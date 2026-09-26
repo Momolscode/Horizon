@@ -87,7 +87,7 @@ test.describe.serial("Référencement — mode connecté", () => {
     await moderator.context().close();
   });
 
-  test("l'établissement revendique la fiche ; après validation, ses informations sont signalées comme fournies par lui", async ({ page, browser }) => {
+  test("l'établissement revendique la fiche ; validation annoncée par e-mail ; ses informations sont signalées comme fournies par lui", async ({ page, browser }) => {
     await signUp(page, pro);
     await page.goto(`/lieux/${placeId}`);
     await page.getByRole("button", { name: /C'est votre établissement/ }).click();
@@ -109,6 +109,11 @@ test.describe.serial("Référencement — mode connecté", () => {
     await moderator.getByRole("listitem").filter({ hasText: placeName }).getByRole("button", { name: "Valider" }).click();
     await expect(moderator.getByText("Revendication validée.")).toBeVisible();
     await moderator.context().close();
+
+    // E-mail « revendication validée » reçu dans Mailpit (pile locale).
+    const approved = await mailpitMessage(pro, `Votre demande de gestion de « ${placeName} » a été validée`);
+    expect(approved.Text).toContain("ne sont pas vérifiées par HORIZON");
+    expect(approved.Text).toContain("http://localhost:3200/contributions");
 
     await page.reload();
     await expect(page.getByText("Validée : vous gérez cette fiche")).toBeVisible();

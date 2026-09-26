@@ -4,11 +4,14 @@ import { z } from "zod";
  * E-mails transactionnels (docs/DECISIONS.md D-019) : texte brut, en français, sans suivi
  * d'ouverture ni lien de désinscription (aucun contenu commercial). Logique pure.
  */
-export const EMAIL_KINDS = ["review_withdrawn", "claim_rejected", "management_revoked"] as const;
+export const EMAIL_KINDS = ["review_withdrawn", "claim_rejected", "management_revoked", "claim_approved"] as const;
 export type EmailKind = (typeof EMAIL_KINDS)[number];
 
 export const ReviewWithdrawnPayload = z.object({ placeId: z.string().min(1), placeName: z.string().min(1).max(200) });
 export type ReviewWithdrawnPayload = z.infer<typeof ReviewWithdrawnPayload>;
+
+export const ClaimApprovedPayload = z.object({ placeId: z.string().min(1), placeName: z.string().min(1).max(200) });
+export type ClaimApprovedPayload = z.infer<typeof ClaimApprovedPayload>;
 
 export const ClaimRejectedPayload = z.object({ placeId: z.string().min(1), placeName: z.string().min(1).max(200), reason: z.string().min(3).max(300) });
 export type ClaimRejectedPayload = z.infer<typeof ClaimRejectedPayload>;
@@ -56,6 +59,30 @@ export function renderReviewWithdrawn(payload: ReviewWithdrawnPayload, context: 
     "Message automatique lié à votre compte HORIZON.",
   ];
   return { subject: `Votre avis sur « ${name} » a été retiré`, text: lines.join("\n") };
+}
+
+/** Validation sans avis à retirer (sinon, l'e-mail « avis retiré » annonce aussi la validation). */
+export function renderClaimApproved(payload: ClaimApprovedPayload, context: EmailContext): RenderedEmail {
+  const name = oneLine(payload.placeName);
+  const placeLink = link(context.siteUrl, `/lieux/${encodeURIComponent(payload.placeId)}`);
+  const spaceLink = link(context.siteUrl, "/contributions");
+  const lines = [
+    "Bonjour,",
+    "",
+    `Votre demande de gestion de la fiche « ${name} » sur HORIZON a été validée.`,
+    "",
+    "Vous pouvez désormais :",
+    "- corriger ses informations pratiques (horaires, prix, réservation, site) : elles sont affichées « fournies par l'établissement », datées, et ne sont pas vérifiées par HORIZON ;",
+    "- répondre gratuitement aux avis des visiteurs : chaque réponse est publiée après modération.",
+    "",
+    "Vous ne pouvez ni modifier, ni supprimer, ni noter les avis de votre établissement.",
+    "",
+    ...(placeLink && spaceLink ? [`Votre espace établissement : ${spaceLink}`, `Voir la fiche : ${placeLink}`] : ["Retrouvez la fiche dans HORIZON, rubrique « Mes contributions »."]),
+    ...(context.supportEmail ? ["", `Une question ? Écrivez à ${oneLine(context.supportEmail)}.`] : []),
+    "",
+    "Message automatique lié à votre compte HORIZON.",
+  ];
+  return { subject: `Votre demande de gestion de « ${name} » a été validée`, text: lines.join("\n") };
 }
 
 export function renderClaimRejected(payload: ClaimRejectedPayload, context: EmailContext): RenderedEmail {
@@ -117,6 +144,10 @@ export function renderEmail(kind: string, payload: unknown, context: EmailContex
   if (kind === "review_withdrawn") {
     const parsed = ReviewWithdrawnPayload.safeParse(payload);
     return parsed.success ? renderReviewWithdrawn(parsed.data, context) : null;
+  }
+  if (kind === "claim_approved") {
+    const parsed = ClaimApprovedPayload.safeParse(payload);
+    return parsed.success ? renderClaimApproved(parsed.data, context) : null;
   }
   if (kind === "claim_rejected") {
     const parsed = ClaimRejectedPayload.safeParse(payload);

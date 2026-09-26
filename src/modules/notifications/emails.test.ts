@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_EMAIL_ATTEMPTS, renderClaimRejected, renderEmail, renderManagementRevoked, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
+import { MAX_EMAIL_ATTEMPTS, renderClaimApproved, renderClaimRejected, renderEmail, renderManagementRevoked, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
 
 describe("e-mail « avis retiré »", () => {
   const payload = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique" };
@@ -92,6 +92,24 @@ describe("e-mail « gestion retirée »", () => {
   it("un contenu incomplet n'est jamais envoyé", () => {
     expect(renderEmail("management_revoked", { ...base, info: "cleared" }, ctx)).toBeNull();
     expect(renderEmail("management_revoked", { ...base, info: "peut-être", removedReplies: 0, keptReplies: 0, rejectedPending: 0 }, ctx)).toBeNull();
+  });
+});
+
+describe("e-mail « revendication validée »", () => {
+  const payload = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique" };
+
+  it("annonce la validation, les droits et leurs limites, sans promettre de vérification", () => {
+    const mail = renderClaimApproved(payload, { siteUrl: "https://horizon.example", supportEmail: null });
+    expect(mail.subject).toBe("Votre demande de gestion de « Atelier Céramique » a été validée");
+    expect(mail.text).toContain("ne sont pas vérifiées par HORIZON");
+    expect(mail.text).toContain("répondre gratuitement aux avis");
+    expect(mail.text).toContain("Vous ne pouvez ni modifier, ni supprimer, ni noter les avis");
+    expect(mail.text).toContain("https://horizon.example/contributions");
+  });
+
+  it("sans adresse du site : aucun lien ; contenu invalide : jamais rendu", () => {
+    expect(renderClaimApproved(payload, { siteUrl: null, supportEmail: null }).text).not.toMatch(/https?:\/\//);
+    expect(renderEmail("claim_approved", { placeId: "x" }, { siteUrl: null, supportEmail: null })).toBeNull();
   });
 });
 

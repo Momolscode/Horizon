@@ -133,6 +133,10 @@ describe("revendication par un professionnel", () => {
 
   it("validée par un administrateur, elle permet de corriger les informations, affichées « fournies par l'établissement »", async () => {
     await asServer((c) => approveClaim(c, admin, claimId));
+    // Le demandeur est prévenu par e-mail (aucun avis à retirer : « revendication validée »).
+    expect((await pool.query(`select user_id, kind, payload from public.email_outbox where dedupe_key like $1`, [`%:${claimId}`])).rows).toEqual([
+      { user_id: pro, kind: "claim_approved", payload: { placeId, placeName: `Kayak Saône ${stamp}` } },
+    ]);
     await asServer((c) => updateEstablishmentInfo(c, pro, placeId, { website: "https://kayak.example", price: "lte30", openingHours: null, bookingMode: "recommended" }));
     const place = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === placeId)!;
     expect(place.practical.website).toMatchObject({ status: "estimate", by: "establishment", value: "https://kayak.example" });
@@ -296,8 +300,8 @@ describe("revendication par un professionnel", () => {
       createdPlaces.push(place);
       const claim = await asServer((c) => submitClaim(c, pro, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@paddle.example" }));
       await asServer((c) => approveClaim(c, admin, claim));
-      // Aucun avis retiré : aucun e-mail (ni « avis retiré », ni « refus »).
-      expect((await pool.query(`select 1 from public.email_outbox where dedupe_key in ($1, $2)`, [`review_withdrawn:${claim}`, `claim_rejected:${claim}`])).rowCount).toBe(0);
+      // Aucun avis retiré : un seul e-mail, « revendication validée ».
+      expect((await pool.query(`select kind from public.email_outbox where dedupe_key like $1`, [`%:${claim}`])).rows).toEqual([{ kind: "claim_approved" }]);
       await asServer((c) => updateEstablishmentInfo(c, pro, place, { website: "https://paddle.example", price: "lte30", openingHours: null, bookingMode: "required" }));
       await expect(asServer((c) => relinquishClaim(c, intruder, place, { clearInfo: true }))).rejects.toMatchObject({ status: 403 });
 
@@ -417,7 +421,8 @@ describe("avis déposé avant la revendication", () => {
     const log = (await pool.query(`select details from public.admin_audit_log where action = 'claim.approve' and target_id = $1`, [place])).rows;
     expect(log[0]!.details).toMatchObject({ claimId: claim, withdrawnReviews: [review] });
     // L'auteur est prévenu par e-mail : enregistré dans la même transaction que le retrait.
-    const outbox = (await pool.query(`select user_id, kind, payload from public.email_outbox where dedupe_key = $1`, [`review_withdrawn:${claim}`])).rows;
+    // Un seul e-mail pour cette validation : « avis retiré », qui annonce aussi la validation.
+    const outbox = (await pool.query(`select user_id, kind, payload from public.email_outbox where dedupe_key like $1`, [`%:${claim}`])).rows;
     expect(outbox).toEqual([{ user_id: owner, kind: "review_withdrawn", payload: { placeId: place, placeName: `Tyrolienne Fourvière ${stamp}` } }]);
 
     // Modifier son avis le renverrait en modération : refusé par la base.

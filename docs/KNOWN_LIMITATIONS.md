@@ -100,7 +100,7 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - un ancien gestionnaire ne peut toujours pas noter la fiche, même après un retrait. C'est un choix de prudence (conflit d'intérêts) ; il n'existe aucune procédure de levée ;
   - la provenance des informations n'est pas enregistrée par gestionnaire. « Effacer » vise toutes les valeurs marquées « fournies par l'établissement », y compris celles d'un gestionnaire précédent retiré sans effacement. Les libellés le disent ;
   - le renoncement n'apparaît pas dans le journal d'administration. Il est tracé dans la revendication (date, auteur, motif) ;
-  - un avis déposé avant la revendication est retiré à la validation (refusé, avec le motif « conflit d'intérêts » visible par son auteur). Il n'est pas supprimé, et il ne redevient pas visible après un retrait de la gestion. L'auteur est prévenu par e-mail si le SMTP est configuré (§ 10), et voit toujours le motif sur la fiche du lieu.
+  - un avis déposé avant la revendication est retiré à la validation (refusé, avec le motif « conflit d'intérêts » visible par son auteur). Il n'est pas supprimé, et il ne redevient pas visible après un retrait de la gestion. L'auteur est prévenu par e-mail si le SMTP est configuré (§ 13), et voit toujours le motif sur la fiche du lieu.
 - **Propositions :**
   - uniquement dans les 4 destinations ;
   - position placée sur un fond sans rues, donc « approximative » ;
@@ -115,7 +115,7 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 ## 10. Fonctions non livrées
 
 - Défis amicaux et comparaisons avancées (seule une comparaison simple existe).
-- Notifications (push, e-mail).
+- Notifications push. Les e-mails se limitent aux quatre messages du référencement (§ 13).
 - Cartes hors ligne avancées : le service worker ne conserve que les pages visitées et le fond embarqué.
 - Applications natives.
 - Paiements, bons partenaires, publicité récompensée. Rien n'est intégré, conformément à la consigne.
@@ -135,13 +135,14 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - Politique de confidentialité, CGU et mentions légales : non rédigées ; validation juridique nécessaire.
 - Aucune licence open source accordée ; dépôt privé.
 
-## 10. E-mails de notification
+## 13. E-mails de notification
 
-- **Portée :** trois e-mails existent :
-  - « avis retiré » : revendication validée alors que la personne avait noté le lieu ;
+- **Portée :** quatre e-mails existent :
+  - « revendication validée » ;
+  - « avis retiré » : revendication validée alors que la personne avait noté le lieu (remplace le précédent, un seul e-mail par validation) ;
   - « revendication refusée », avec le motif ;
   - « gestion retirée » par un administrateur, avec le motif et ce qui a été fait.
-- **Événements sans e-mail :** revendication validée sans avis, renoncement (décidé par l'établissement lui-même), proposition de lieu ou réponse modérée, etc.
+- **Événements sans e-mail :** renoncement (décidé par l'établissement lui-même), proposition de lieu ou réponse modérée, etc.
 - **Motifs :** ils sont rédigés par l'administrateur et envoyés tels quels (sur une ligne). Aucune relecture automatique : un motif maladroit part tel qu'écrit.
 - **Vérifié seulement en local :** l'envoi SMTP est testé contre Mailpit, le serveur de test de la pile Supabase locale. Aucun fournisseur SMTP réel n'a été configuré ni essayé. La délivrabilité (SPF, DKIM, DMARC, réputation du domaine) n'est ni configurée ni vérifiée : des e-mails peuvent arriver en indésirables.
 - **Envoi différé :** l'envoi immédiat après la validation est une commodité (`after()`). Sans tâche planifiée `npm run mail:flush`, un e-mail en échec n'est relancé qu'à la validation suivante ou par le bouton de l'administration.

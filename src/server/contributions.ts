@@ -211,11 +211,12 @@ export async function approveClaim(c: PoolClient, adminId: string, claimId: stri
       where user_id = $1 and place_id = $2 and status <> 'rejected' returning id`,
     [res.rows[0].user_id, placeId, CONFLICT_REVIEW_REASON, adminId],
   );
-  if (withdrawn.rowCount) {
-    // L'auteur est prévenu par e-mail (enregistré ici, envoyé après validation de la transaction).
-    const place = await c.query(`select name from public.places where id = $1`, [placeId]);
-    await enqueueEmail(c, { userId: String(res.rows[0].user_id), kind: "review_withdrawn", payload: { placeId, placeName: String(place.rows[0].name) }, dedupeKey: `review_withdrawn:${claimId}` });
-  }
+  // Un seul e-mail par validation (enregistré ici, envoyé après validation de la transaction) :
+  // « avis retiré » s'il y en avait un (il annonce aussi la validation), sinon « revendication validée ».
+  const place = await c.query(`select name from public.places where id = $1`, [placeId]);
+  const email = { userId: String(res.rows[0].user_id), payload: { placeId, placeName: String(place.rows[0].name) } };
+  if (withdrawn.rowCount) await enqueueEmail(c, { ...email, kind: "review_withdrawn", dedupeKey: `review_withdrawn:${claimId}` });
+  else await enqueueEmail(c, { ...email, kind: "claim_approved", dedupeKey: `claim_approved:${claimId}` });
   await audit(c, adminId, "claim.approve", "place", placeId, { claimId, withdrawnReviews: withdrawn.rows.map((r) => String(r.id)) });
 }
 

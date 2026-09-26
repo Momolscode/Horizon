@@ -201,4 +201,7 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
   - un retrait de la gestion par un administrateur envoie à l'établissement un e-mail avec le motif et ce qui a **réellement** été fait : informations effacées, laissées ou absentes ; réponses publiées retirées ou laissées ; réponses en attente abandonnées. Aucune phrase ne porte sur ce qui n'existait pas ;
   - il indique aussi que l'établissement peut déposer une nouvelle demande ;
   - le renoncement, décidé par l'établissement lui-même, n'envoie pas d'e-mail.
+- **Complément du 2026-09-26 — « revendication validée » (migration `20260926000400_claim_approved_email.sql`) :**
+  - la validation envoie **un seul** e-mail : « avis retiré » si le demandeur avait noté le lieu (il annonce aussi la validation), sinon « revendication validée » ;
+  - ce dernier rappelle les droits (informations pratiques non vérifiées par HORIZON, réponses gratuites et modérées) et leurs limites (ni modifier, ni supprimer, ni noter les avis).
 
