@@ -72,6 +72,7 @@ Guide complet : `docs/HANDOVER.md`.
 | `npm run verify` | typecheck + lint + tests + build |
 | `npm run db:seed:sql` | Régénère `supabase/seed.sql` depuis le catalogue |
 | `npm run admin:grant` | Accorde ou retire le rôle administrateur |
+| `npm run mail:flush` | Envoie les e-mails en file, relance, purge (à planifier en production) |
 | `npm run basemap:build` | Régénère le fond Natural Earth (réseau requis) |
 | `node scripts/screenshots.mjs` | Captures réelles (serveur démo sur le port 3100) |
 

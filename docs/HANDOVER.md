@@ -88,14 +88,16 @@ Comptes de test :
 
 Droits administrateur : `DATABASE_URL=... npm run admin:grant -- personne@exemple.fr` (ou `--revoke`). L'action est tracée dans `admin_audit_log`.
 
+E-mails en local : la pile démarre Mailpit (`[local_smtp]` de `supabase/config.toml`), qui capte tous les messages sans rien envoyer à l'extérieur. Mettre `SMTP_URL=smtp://127.0.0.1:54325` et `MAIL_FROM="HORIZON <no-reply@horizon.local>"` dans `.env.local`, puis consulter les messages sur http://127.0.0.1:54324. `npm run test:e2e:connected` le configure seul.
+
 ### Tests
 
 | Commande | Portée | Prérequis |
 |---|---|---|
 | `npm run typecheck`, `npm run lint`, `npm test` | types, lint, logique pure et stockage démo | aucun |
 | `npm run build:demo && npm run test:e2e` | parcours démo, mobile (390×844) et ordinateur (1440×900) | Chromium Playwright |
-| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1, constats de la revue finale | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`), **fraîchement réinitialisée** (`npm run supabase:reset`) : deux tests comptent les 40 lieux du seed, et les parcours e2e connectés ajoutent des lieux à chaque exécution |
-| `npm run test:e2e:connected` | inscription, persistance, isolation, liste d'attente, P1 | pile Supabase locale démarrée et réinitialisée |
+| `npm run test:db` | RLS, attribution concurrente, missions, durcissement, P1, constats de la revue finale, référencement, file d'e-mails | base locale Supabase (`TEST_DATABASE_URL`, par défaut `127.0.0.1:54322`) avec Mailpit (SMTP 54325, interface 54324), **fraîchement réinitialisée** (`npm run supabase:reset`) : deux tests comptent les 40 lieux du seed, et les parcours e2e connectés ajoutent des lieux à chaque exécution |
+| `npm run test:e2e:connected` | inscription, persistance, isolation, liste d'attente, P1, référencement, e-mail reçu dans Mailpit | pile Supabase locale démarrée (Mailpit compris) et réinitialisée |
 | `node scripts/screenshots.mjs [url] [dossier]` | captures réelles pilotées | serveur démo sur le port 3100 |
 
 ## 4. Données
@@ -133,7 +135,8 @@ Circuit de modération :
 2. L'administrateur l'examine dans l'onglet « Propositions » de `/admin`. S'il le publie, le lieu est inséré dans `places` avec la source `contribution-membres`, non vérifié, cellule H3 calculée ; le catalogue est revalidé dans la transaction.
 3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ». La validation retire les avis que le demandeur avait déposés sur ce lieu (motif « conflit d'intérêts », journalisé dans `claim.approve`).
 4. L'établissement corrige ses informations depuis `/contributions` (`PATCH /api/pro/lieux/[id]`) et répond aux avis (`POST /api/pro/reponses`). Les réponses sont modérées dans l'onglet « Réponses ».
-5. Fin de gestion :
+5. Si le demandeur avait noté le lieu, un e-mail « avis retiré » est mis en file dans la même transaction que la validation, puis envoyé (D-019). L'onglet « Vue d'ensemble » de `/admin` affiche l'état des envois : SMTP configuré ou non, en attente, abandonnés, dernière erreur.
+6. Fin de gestion :
    - **Retrait par l'administrateur :** carte « Fiches gérées » de l'onglet « Revendications », via `PATCH /api/admin/revendications/[id]` avec `decision: "revoke"`, un motif et les options `clearInfo` et `removeReplies`. Le retrait est journalisé (`claim.revoke`).
    - **Renoncement par l'établissement :** depuis `/contributions`, via `POST /api/pro/lieux/[id]/renonciation`.
    - Dans les deux cas, la revendication passe à `revoked` et la fiche redevient revendicable. Pour transférer une fiche, il faut retirer la gestion puis faire valider la nouvelle revendication.
@@ -160,6 +163,7 @@ Le cache du catalogue est revalidé par empreinte à chaque lecture (D-018).
 | Avis et signalements d'avis | `reviews`, `review_reports` | modération | cascade |
 | Propositions de lieux (contenu, position, auteur) | `place_proposals` | référencement modéré | l'auteur devient vide à la suppression du compte ; le lieu publié reste (contribution anonymisée) |
 | Revendications (SIRET, preuve : e-mail professionnel ou description du justificatif) | `place_claims` | vérification de l'établissement | cascade à la suppression du compte ; **données professionnelles à traiter avec soin** |
+| E-mails de notification (type, nom du lieu, dates d'envoi ; **aucune adresse**) | `email_outbox` | prévenir l'auteur d'un avis retiré | cascade à la suppression du compte ; envoyés purgés après 30 jours, abandons après 90 (`npm run mail:flush`) |
 | Réponses des établissements aux avis | `review_replies` | droit de réponse | cascade |
 | Signalements d'erreur sur un lieu | `error_reports` | qualité du catalogue | conservés sans auteur (`on delete set null`) |
 | Journal d'administration | `admin_audit_log` | traçabilité | conservé (sans clé étrangère vers l'administrateur) |
@@ -187,7 +191,7 @@ Autres garanties :
 | Fournisseur de tuiles MapLibre | optionnel (`NEXT_PUBLIC_MAP_STYLE_URL`) | non configuré ; conditions et attribution à vérifier |
 | Open-Meteo | météo optionnelle (`NEXT_PUBLIC_WEATHER_PROVIDER=open-meteo`) | adaptateur écrit, **non vérifié** faute de réseau ; usage commercial soumis à abonnement |
 | Google Maps, Apple Plans, Waze | liens sortants « Y aller » | formats d'URL non vérifiés en conditions réelles |
-| SMTP | e-mails d'authentification | non configuré |
+| SMTP | e-mails d'authentification (Supabase Auth) et notifications de l'application (`SMTP_URL`, `MAIL_FROM`) | non configuré ; notifications testées contre Mailpit en local uniquement |
 
 ## 6. Déploiement (non réalisé)
 
@@ -198,10 +202,12 @@ Aucun déploiement n'a été effectué : il demande l'accord du porteur du proje
 3. Héberger Next.js (Vercel, ou tout hôte Node 22). Variables :
    - `NEXT_PUBLIC_HORIZON_MODE=connected` ;
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ;
-   - `DATABASE_URL` (pooler Supabase en mode transaction), `WAITLIST_HASH_SALT`.
-4. La CSP (`next.config.ts`) dérive `connect-src` des variables : reconstruire après tout changement de fournisseur.
-5. Le limiteur de débit est en mémoire et par instance. En production multi-instances, le remplacer par un stockage partagé (Redis, table Postgres). Vérifier aussi que l'hébergeur écrase bien `x-forwarded-for`, sur lequel repose la clé des routes anonymes.
-6. Lancer la CI (`.github/workflows/ci.yml`), qui n'a jamais été exécutée sur GitHub.
+   - `DATABASE_URL` (pooler Supabase en mode transaction), `WAITLIST_HASH_SALT` ;
+   - notifications : `SMTP_URL` (identifiants compris, secret), `MAIL_FROM`, `SITE_URL` (adresse publique, pour les liens des e-mails).
+4. Planifier `npm run mail:flush` toutes les 5 à 15 min (cron de l'hébergeur ou tâche externe) : relances, purge (D-019).
+5. La CSP (`next.config.ts`) dérive `connect-src` des variables : reconstruire après tout changement de fournisseur.
+6. Le limiteur de débit est en mémoire et par instance. En production multi-instances, le remplacer par un stockage partagé (Redis, table Postgres). Vérifier aussi que l'hébergeur écrase bien `x-forwarded-for`, sur lequel repose la clé des routes anonymes.
+7. Lancer la CI (`.github/workflows/ci.yml`), qui n'a jamais été exécutée sur GitHub.
 
 ## 7. Sauvegarde et restauration
 

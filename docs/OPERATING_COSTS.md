@@ -19,7 +19,8 @@
 | Hébergement Next.js | Vercel ou hôte Node 22 | offre, trafic, exécutions de fonctions serveur | **À vérifier** |
 | PostgreSQL + Auth | Supabase (région UE) | offre, taille de base, utilisateurs actifs mensuels, sauvegardes, mise en pause des projets inactifs sur les offres gratuites | **À vérifier** |
 | Pooler de connexions | Supabase (inclus selon l'offre) | connexions simultanées (`DATABASE_POOL_MAX`) | **À vérifier** |
-| E-mails d'authentification | fournisseur SMTP (confirmation d'inscription, réinitialisation) | volume d'e-mails | **À vérifier** |
+| E-mails d'authentification et de notification | fournisseur SMTP (confirmation d'inscription, réinitialisation, « avis retiré ») | volume d'e-mails, domaine d'envoi authentifié (SPF, DKIM) | **À vérifier** |
+| Tâche planifiée `npm run mail:flush` | cron de l'hébergeur ou service externe | fréquence d'exécution | **À vérifier** |
 | Tuiles de carte détaillées (optionnel) | fournisseur compatible MapLibre | chargements de carte ou de tuiles, conditions d'attribution | **À vérifier** |
 | Météo (optionnel) | Open-Meteo ou autre | usage commercial soumis à abonnement chez Open-Meteo, à confirmer | **À vérifier** |
 | Stockage partagé du limiteur de débit (multi-instances) | Redis managé ou table Postgres | requêtes | **À vérifier** |

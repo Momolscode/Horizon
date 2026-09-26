@@ -32,6 +32,10 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
       DATABASE_URL: process.env.DATABASE_URL ?? "",
+      // E-mails captés par Mailpit (pile Supabase locale) : rien ne sort de la machine.
+      SMTP_URL: process.env.SMTP_URL ?? "",
+      MAIL_FROM: process.env.MAIL_FROM ?? "",
+      SITE_URL: `http://localhost:${PORT}`,
     },
   },
 });

@@ -108,7 +108,7 @@ Prérequis : voir HANDOVER § 3. Parcours couverts par `npm run test:e2e:connect
 - partage révocable ;
 - mission récompensée une seule fois ;
 - Mode Duo : invitation, co-édition, conflit sans écrasement, visite pour deux confirmée ;
-- référencement : proposition d'un lieu, modération, revendication, informations de l'établissement, avis après visite et réponse, retrait de la gestion par un administrateur, renoncement par l'établissement ;
+- référencement : proposition d'un lieu, modération, revendication, informations de l'établissement, avis après visite et réponse, retrait de la gestion par un administrateur, avis retiré à la validation avec e-mail reçu dans Mailpit, renoncement par l'établissement ;
 - avis modéré, publié par un administrateur et journalisé.
 
 ### Mode Duo (captures réelles, mode connecté, mobile)
@@ -138,6 +138,10 @@ Captures produites par `REF_SHOTS=docs/screenshots npm run test:e2e:connected --
 | Retrait de la gestion (administration) | Renoncement par l'établissement |
 |---|---|
 | ![Retrait de la gestion](screenshots/ref-05-retrait-gestion.jpg) | ![Renoncement](screenshots/ref-06-renoncement.jpg) |
+
+E-mail « avis retiré » reçu par Mailpit, le serveur SMTP de test de la pile locale (rien n'est envoyé à l'extérieur ; adresse de test fictive) :
+
+![E-mail avis retiré](screenshots/ref-07-email-avis-retire.jpg)
 
 Les autres écrans du mode connecté n'ont pas de captures.
 

@@ -19,6 +19,7 @@ const lat = (45.72 + (stamp % 70) * 0.001).toFixed(4);
 const lng = (4.77 + (Math.floor(stamp / 70) % 120) * 0.001).toFixed(4);
 
 const SHOTS = process.env.REF_SHOTS;
+const MAILPIT = "http://127.0.0.1:54324"; // interface du serveur SMTP de test (pile Supabase locale)
 async function shot(page: Page, name: string) {
   if (!SHOTS) return;
   await page.waitForTimeout(600);
@@ -189,8 +190,8 @@ test.describe.serial("Référencement — mode connecté", () => {
     await expect(dialog.getByText("Demande envoyée.")).toBeVisible();
   });
 
-  test("l'administration signale qu'un demandeur a déjà noté le lieu (son avis serait retiré à la validation)", async ({ page, browser }) => {
-    // Le membre a laissé un avis publié sur ce lieu (test précédent), puis revendique la fiche.
+  test("un membre qui a noté le lieu obtient la gestion : son avis est retiré et il est prévenu par e-mail", async ({ page, browser }) => {
+    // Le membre a laissé un avis publié sur ce lieu (test 3), puis revendique la fiche.
     await signIn(page, member);
     await page.goto(`/lieux/${placeId}`);
     await page.getByRole("button", { name: /C'est votre établissement/ }).click();
@@ -205,24 +206,47 @@ test.describe.serial("Référencement — mode connecté", () => {
     await moderator.goto("/admin");
     await moderator.getByRole("tab", { name: "Revendications" }).click();
     const pending = moderator.getByRole("region", { name: "Revendications de fiches" }).getByRole("listitem").filter({ hasText: placeName });
-    await expect(pending).toHaveCount(2); // demande du membre et nouvelle demande de l'établissement
+    await expect(pending).toHaveCount(2); // demande du membre et nouvelle demande de l'établissement (test 4)
     const flagged = pending.filter({ hasText: "Cette personne a déposé un avis sur ce lieu" });
     await expect(flagged).toHaveCount(1);
     await expect(flagged).toContainText("il sera retiré si vous validez la demande");
-    await flagged.getByRole("button", { name: "Refuser" }).click();
+    await pending.filter({ hasNotText: "Cette personne a déposé un avis" }).getByRole("button", { name: "Refuser" }).click();
     await expect(moderator.getByText("Revendication refusée.")).toBeVisible();
+    await expect(pending).toHaveCount(1);
+    await flagged.getByRole("button", { name: "Valider" }).click();
+    await expect(moderator.getByText("Revendication validée.")).toBeVisible();
+
+    // E-mail reçu par le serveur SMTP de test local (Mailpit) : rien ne sort de la machine.
+    const subject = `Votre avis sur « ${placeName} » a été retiré`;
+    let messageId: string | undefined;
+    await expect
+      .poll(async () => {
+        const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${member}"`)}`);
+        const found = ((await res.json()) as { messages: Array<{ ID: string; Subject: string }> }).messages.find((m) => m.Subject === subject);
+        messageId = found?.ID;
+        return Boolean(found);
+      }, { timeout: 20_000 })
+      .toBe(true);
+    const mail = (await (await fetch(`${MAILPIT}/api/v1/message/${messageId}`)).json()) as { Text: string };
+    expect(mail.Text).toContain(`http://localhost:3200/lieux/${placeId}`);
+    expect(mail.Text).toContain("il n'est plus affiché, mais il n'est pas supprimé");
+
+    // L'administration voit l'envoi ; la configuration SMTP est présente.
+    await moderator.getByRole("tab", { name: "Vue d'ensemble" }).click();
+    const mailCard = moderator.getByRole("region", { name: "E-mails de notification" });
+    await expect(mailCard).not.toContainText("SMTP non configuré");
+    await expect(mailCard).toContainText(/[1-9]\d* envoyés? sur 7 jours/);
     await moderator.context().close();
+
+    // Sur la fiche : l'avis du membre n'est plus affiché, et il en voit le motif.
+    await page.goto(`/lieux/${placeId}`);
+    await expect(page.getByText(/refusé \(Retiré : son auteur gère désormais la fiche/)).toBeVisible();
+    await expect(page.getByText("Réponse de l'établissement")).toHaveCount(0);
   });
 
   test("l'établissement renonce lui-même à gérer sa fiche", async ({ page }) => {
-    // Nouvelle demande de l'établissement (test précédent) validée directement : la validation manuelle est couverte plus haut.
-    const approved = await sql(
-      `update public.place_claims set status = 'approved', reviewed_at = now()
-        where place_id = $1 and status = 'pending' and user_id = (select id from auth.users where email = $2) returning id`,
-      [placeId, pro],
-    );
-    expect(approved).toHaveLength(1);
-    await signIn(page, pro);
+    // Le membre gère la fiche depuis le test précédent.
+    await signIn(page, member);
     await page.goto("/contributions");
     await expect(page.getByText("Validée : vous gérez cette fiche")).toBeVisible();
     await page.getByRole("button", { name: "Ne plus gérer cette fiche…" }).click();

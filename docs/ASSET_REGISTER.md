@@ -65,10 +65,11 @@ Versions exactes figées dans `package.json` et `package-lock.json`.
 | zod | 4.6.5 | MIT |
 | lucide-react | 1.48.0 | ISC |
 | server-only | 0.0.1 | MIT |
+| nodemailer | 10.0.10 | MIT-0 (aucune dépendance) |
 
 ### Arbre de production complet
 
-Relevé dans `package-lock.json` pour les paquets non-dev, dépendances optionnelles par plateforme comprises : MIT (54), Apache-2.0 (20), ISC (13), BSD-3-Clause (4), BSD-2-Clause (2), 0BSD (1), MIT OR Apache-2.0 (1), OFL-1.1 (2), CC-BY-4.0 (1), LGPL-3.0-or-later seule ou combinée (14).
+Relevé dans `package-lock.json` pour les paquets non-dev, dépendances optionnelles par plateforme comprises, avant l'ajout de nodemailer (MIT-0, sans dépendance, ajouté le 2026-09-26) : MIT (54), Apache-2.0 (20), ISC (13), BSD-3-Clause (4), BSD-2-Clause (2), 0BSD (1), MIT OR Apache-2.0 (1), OFL-1.1 (2), CC-BY-4.0 (1), LGPL-3.0-or-later seule ou combinée (14).
 
 Deux familles méritent attention :
 

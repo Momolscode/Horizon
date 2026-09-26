@@ -100,7 +100,7 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
   - un ancien gestionnaire ne peut toujours pas noter la fiche, même après un retrait. C'est un choix de prudence (conflit d'intérêts) ; il n'existe aucune procédure de levée ;
   - la provenance des informations n'est pas enregistrée par gestionnaire. « Effacer » vise toutes les valeurs marquées « fournies par l'établissement », y compris celles d'un gestionnaire précédent retiré sans effacement. Les libellés le disent ;
   - le renoncement n'apparaît pas dans le journal d'administration. Il est tracé dans la revendication (date, auteur, motif) ;
-  - un avis déposé avant la revendication est retiré à la validation (refusé, avec le motif « conflit d'intérêts » visible par son auteur). Il n'est pas supprimé, et il ne redevient pas visible après un retrait de la gestion. L'auteur n'en est prévenu que sur la fiche du lieu, sans e-mail.
+  - un avis déposé avant la revendication est retiré à la validation (refusé, avec le motif « conflit d'intérêts » visible par son auteur). Il n'est pas supprimé, et il ne redevient pas visible après un retrait de la gestion. L'auteur est prévenu par e-mail si le SMTP est configuré (§ 10), et voit toujours le motif sur la fiche du lieu.
 - **Propositions :**
   - uniquement dans les 4 destinations ;
   - position placée sur un fond sans rues, donc « approximative » ;
@@ -134,3 +134,12 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 - Nom « HORIZON » et domaine : disponibilité non vérifiée.
 - Politique de confidentialité, CGU et mentions légales : non rédigées ; validation juridique nécessaire.
 - Aucune licence open source accordée ; dépôt privé.
+
+## 10. E-mails de notification
+
+- **Portée :** un seul e-mail existe, « avis retiré » (revendication validée alors que la personne avait noté le lieu). Aucun e-mail n'est envoyé pour les autres événements : revendication validée sans avis ou refusée, retrait de la gestion, réponse modérée, etc.
+- **Vérifié seulement en local :** l'envoi SMTP est testé contre Mailpit, le serveur de test de la pile Supabase locale. Aucun fournisseur SMTP réel n'a été configuré ni essayé. La délivrabilité (SPF, DKIM, DMARC, réputation du domaine) n'est ni configurée ni vérifiée : des e-mails peuvent arriver en indésirables.
+- **Envoi différé :** l'envoi immédiat après la validation est une commodité (`after()`). Sans tâche planifiée `npm run mail:flush`, un e-mail en échec n'est relancé qu'à la validation suivante ou par le bouton de l'administration.
+- **Doublon possible :** garantie « au moins une fois » (D-019).
+- **Pas de préférence d'e-mail :** le compte ne permet pas de refuser ces messages de service. À examiner avec la validation juridique (information des personnes, politique de confidentialité).
+

@@ -183,3 +183,17 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
 - **Contexte :** le cache mémoire du catalogue (60 s) était propre à chaque instance de route. L'administration invalidait celui de sa propre route, mais la page d'un lieu ou `/api/catalog` pouvaient servir un catalogue périmé, en développement comme en production serverless. Découvert par un test e2e : un lieu tout juste publié renvoyait « Page introuvable ».
 - **Décision :** avant de réutiliser le cache, chaque lecture calcule une empreinte bon marché (nombre de lieux, dernier `updated_at`, nombre de destinations publiées). Rechargement complet au plus tard après 10 min.
 - **Conséquences :** une petite requête par lecture du catalogue. Une modification de destination sans changement de lieu (parcours médaille) n'est prise en compte qu'après 10 min, car aucune interface ne permet cette modification aujourd'hui.
+
+## D-019 — E-mails transactionnels par file d'envoi (outbox)
+
+- **Contexte :** l'auteur d'un avis retiré à la validation de sa revendication (D-017) n'en était prévenu que sur la fiche du lieu. Demande du porteur du projet le 2026-09-26 : le prévenir par e-mail.
+- **Décision :**
+  - l'e-mail est enregistré dans `email_outbox` **dans la transaction** qui retire l'avis (migration `20260926000100_email_outbox.sql`). Si la validation échoue, aucun e-mail n'existe ; si elle réussit, l'e-mail ne peut pas être perdu ;
+  - l'envoi SMTP (nodemailer) a lieu après la réponse HTTP (`after()` de Next.js), puis par `npm run mail:flush`, à planifier toutes les 5 à 15 min en production. Relances à 1, 5, 30 et 120 min, puis abandon après 5 tentatives ; l'administration peut remettre en file ;
+  - aucune adresse n'est copiée dans la file : elle est lue dans `auth.users` au moment de l'envoi. La suppression du compte supprime ses e-mails en file. Purge des envois après 30 jours et des abandons après 90 jours ;
+  - texte brut en français, sans suivi d'ouverture ni contenu commercial ; sans `SITE_URL`, aucun lien n'est inventé ;
+  - sans `SMTP_URL` et `MAIL_FROM`, rien n'est envoyé : les e-mails restent en file et l'administration l'affiche (pas d'échec silencieux).
+- **Garantie :** « au moins une fois ». Deux instances n'envoient pas le même e-mail (réservation `skip locked`), mais un arrêt entre l'envoi et son enregistrement peut produire un doublon.
+- **Écartés :** envoi dans la transaction (un SMTP lent bloquerait la validation), service d'e-mail propriétaire (dépendance et coût non validés), e-mails HTML (inutile pour un message de service).
+- **Tests :** rendu du message (unitaires) ; file, relances, masquage des identifiants, concurrence, purge et envoi SMTP réel vers Mailpit (base réelle) ; parcours complet jusqu'à la réception dans Mailpit (e2e connecté).
+

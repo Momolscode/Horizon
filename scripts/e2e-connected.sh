@@ -10,4 +10,7 @@ fi
 export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
 export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
 export DATABASE_URL="$DB_URL"
+# Serveur SMTP de test de la pile locale (Mailpit, [local_smtp] dans supabase/config.toml).
+export SMTP_URL="smtp://127.0.0.1:54325"
+export MAIL_FROM="HORIZON (local) <no-reply@horizon.local>"
 exec npx playwright test --config playwright.connected.config.ts "$@"

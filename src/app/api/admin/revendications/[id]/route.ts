@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { withTransaction } from "@/server/db";
+import { getPool, withTransaction } from "@/server/db";
+import { deliverPendingEmails } from "@/server/mail";
 import { adminRoute } from "@/server/admin";
 import { invalidateCatalogCache } from "@/server/catalog";
 import { approveClaim, rejectClaim, revokeClaim } from "@/server/contributions";
@@ -26,6 +27,13 @@ export const PATCH = adminRoute<{ id: string }>(
         return revokeClaim(c, admin.id, params.id, input);
       });
       if (input.decision === "revoke" && input.clearInfo) invalidateCatalogCache();
+      // Une validation peut avoir mis un e-mail en file (avis retiré) : envoi après la réponse.
+      if (input.decision === "approve") {
+        after(async () => {
+          const report = await deliverPendingEmails(getPool()).catch((error: unknown) => ({ status: "error", message: error instanceof Error ? error.message : "erreur" }));
+          if (report.status !== "done") console.warn("e-mails : envoi différé", report.status);
+        });
+      }
       return NextResponse.json({ ok: true });
     } catch (error) {
       return contributionErrorResponse(error, "modération de revendication");

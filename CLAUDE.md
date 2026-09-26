@@ -15,6 +15,7 @@ npm test                    # Vitest : logique métier, stockage démo, adaptate
 npm run test:db             # Intégration PostgreSQL/PostGIS réelle (voir docs/HANDOVER.md)
 npm run build:demo && npm run test:e2e   # Playwright sur build de production
 npm run verify              # typecheck + lint + test + build:demo
+npm run mail:flush          # e-mails en file : envoi, relances, purge (SMTP_URL, MAIL_FROM)
 ```
 
 ## Architecture en bref

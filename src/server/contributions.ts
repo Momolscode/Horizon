@@ -17,6 +17,7 @@ import { parcelForLocation } from "@/modules/progression/parcels";
 import { todayIn } from "@/modules/shared/time";
 import { audit } from "./admin";
 import { loadCatalogFromDb } from "./catalog";
+import { enqueueEmail } from "./mail";
 
 /**
  * Référencement élargi (docs/DECISIONS.md D-017). Fonctions appelées dans une transaction
@@ -209,6 +210,11 @@ export async function approveClaim(c: PoolClient, adminId: string, claimId: stri
       where user_id = $1 and place_id = $2 and status <> 'rejected' returning id`,
     [res.rows[0].user_id, placeId, CONFLICT_REVIEW_REASON, adminId],
   );
+  if (withdrawn.rowCount) {
+    // L'auteur est prévenu par e-mail (enregistré ici, envoyé après validation de la transaction).
+    const place = await c.query(`select name from public.places where id = $1`, [placeId]);
+    await enqueueEmail(c, { userId: String(res.rows[0].user_id), kind: "review_withdrawn", payload: { placeId, placeName: String(place.rows[0].name) }, dedupeKey: `review_withdrawn:${claimId}` });
+  }
   await audit(c, adminId, "claim.approve", "place", placeId, { claimId, withdrawnReviews: withdrawn.rows.map((r) => String(r.id)) });
 }
 

@@ -64,7 +64,7 @@ export function AdminScreen() {
   const [version, setVersion] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
-  const overview = useAdminData<{ counts: Record<string, number>; metrics: Metrics }>(MODE.mode === "connected" ? "/api/admin/overview" : null, version);
+  const overview = useAdminData<{ counts: Record<string, number>; metrics: Metrics; mail: MailStatus }>(MODE.mode === "connected" ? "/api/admin/overview" : null, version);
 
   if (MODE.mode !== "connected") {
     return (
@@ -116,7 +116,7 @@ export function AdminScreen() {
         {message}
       </p>
       <div className="mt-2 space-y-4">
-        {tab === "overview" && overview.data ? <Overview counts={overview.data.counts} metrics={overview.data.metrics} /> : null}
+        {tab === "overview" && overview.data ? <Overview counts={overview.data.counts} metrics={overview.data.metrics} mail={overview.data.mail} act={act} /> : null}
         {tab === "reports" ? <Reports version={version} act={act} /> : null}
         {tab === "reviews" ? <Reviews version={version} act={act} /> : null}
         {tab === "proposals" ? <Proposals version={version} act={act} /> : null}
@@ -133,7 +133,34 @@ export function AdminScreen() {
 
 type Act = (path: string, method: "PATCH" | "POST", body: Json, success: string) => Promise<boolean>;
 
-function Overview({ counts, metrics }: { counts: Record<string, number>; metrics: Metrics }) {
+type MailStatus = { configured: boolean; siteUrlConfigured: boolean; pending: number; failed: number; sent_7d: number; last_error: string | null };
+
+function MailCard({ mail, act }: { mail: MailStatus; act: Act }) {
+  return (
+    <Card title="E-mails de notification">
+      {!mail.configured ? (
+        <p className="mb-2 rounded-xl bg-warn-soft px-3 py-2 text-sm font-bold text-warn-ink">
+          SMTP non configuré (variables SMTP_URL et MAIL_FROM) : aucun e-mail n&apos;est envoyé. Les e-mails restent en file et partiront une fois la configuration faite.
+        </p>
+      ) : null}
+      {mail.configured && !mail.siteUrlConfigured ? <p className="mb-2 text-xs text-ink-3">SITE_URL absente : les e-mails ne contiennent pas de lien vers l&apos;application.</p> : null}
+      <p className="text-sm">
+        {mail.pending} en attente · {mail.failed} abandonné{mail.failed > 1 ? "s" : ""} après plusieurs tentatives · {mail.sent_7d} envoyé{mail.sent_7d > 1 ? "s" : ""} sur 7 jours
+      </p>
+      {mail.last_error ? <p className="mt-1 text-xs text-danger-ink">Dernière erreur : {mail.last_error}</p> : null}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" disabled={!mail.configured || !mail.pending} onClick={() => void act("/api/admin/emails", "POST", { retryFailed: false }, "Envoi effectué.")}>
+          Envoyer maintenant
+        </button>
+        <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" disabled={!mail.configured || !mail.failed} onClick={() => void act("/api/admin/emails", "POST", { retryFailed: true }, "E-mails abandonnés remis en file et envoi effectué.")}>
+          Relancer les abandonnés
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function Overview({ counts, metrics, mail, act }: { counts: Record<string, number>; metrics: Metrics; mail: MailStatus; act: Act }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -191,6 +218,7 @@ function Overview({ counts, metrics }: { counts: Record<string, number>; metrics
         </table>
         <p className="mt-2 text-xs text-ink-3">« — » : dénominateur inférieur à 20 comptes ou semaine non écoulée. Aucune valeur n&apos;est extrapolée.</p>
       </Card>
+      <MailCard mail={mail} act={act} />
     </>
   );
 }
