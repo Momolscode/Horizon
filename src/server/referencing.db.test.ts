@@ -243,6 +243,10 @@ describe("revendication par un professionnel", () => {
       expect(mine.claims.find((c) => c.id === claimId)).toMatchObject({ status: "revoked", revoke_reason: "Changement de propriétaire", revoked_by_self: false });
       expect(mine.managedPlaceIds).not.toContain(placeId);
       expect((await asServer((c) => adminListManagers(c))).some((m) => m.id === claimId)).toBe(false);
+      // L'établissement est prévenu par e-mail de ce qui a réellement été fait.
+      expect((await pool.query(`select user_id, payload from public.email_outbox where dedupe_key = $1`, [`management_revoked:${claimId}`])).rows).toEqual([
+        { user_id: pro, payload: { placeId, placeName: `Kayak Saône ${stamp}`, reason: "Changement de propriétaire", info: "cleared", removedReplies: 0, keptReplies: 1, rejectedPending: 1 } },
+      ]);
       const log = (await pool.query(`select admin_id, details from public.admin_audit_log where action = 'claim.revoke' and target_id = $1`, [placeId])).rows;
       expect(log).toHaveLength(1);
       expect(log[0]).toMatchObject({ admin_id: admin, details: { claimId, reason: "Changement de propriétaire", clearInfo: true, rejectedPending: 1, removedPublished: 0 } });
@@ -271,6 +275,12 @@ describe("revendication par un professionnel", () => {
       expect((await publishedReplies()).get(guestReview)).toBe("Merci et bienvenue à nouveau.");
 
       await asServer((c) => revokeClaim(c, admin, newClaim, { reason: "Réponses contraires aux règles", removeReplies: true, clearInfo: false }));
+      expect((await pool.query(`select payload from public.email_outbox where dedupe_key = $1`, [`management_revoked:${newClaim}`])).rows[0].payload).toMatchObject({
+        info: "kept",
+        removedReplies: 2,
+        keptReplies: 0,
+        rejectedPending: 0,
+      });
       const replies = await publishedReplies();
       expect(replies.get(memberReview)).toBeNull();
       expect(replies.get(guestReview)).toBeNull();
@@ -292,6 +302,8 @@ describe("revendication par un professionnel", () => {
       await expect(asServer((c) => relinquishClaim(c, intruder, place, { clearInfo: true }))).rejects.toMatchObject({ status: 403 });
 
       await asServer((c) => relinquishClaim(c, pro, place, { clearInfo: true }));
+      // Renoncement : décidé par l'établissement lui-même, aucun e-mail « gestion retirée ».
+      expect((await pool.query(`select 1 from public.email_outbox where dedupe_key = $1`, [`management_revoked:${claim}`])).rowCount).toBe(0);
       const after = (await loadCatalogFromDb(pool)).catalog.places.find((p) => p.id === place)!;
       expect(after.practical.website).toEqual({ status: "unknown" });
       expect(after.practical.booking).toEqual({ status: "unknown" });
@@ -334,6 +346,13 @@ describe("revendication par un professionnel", () => {
           revoking.release();
         }
         expect((await pool.query(`select 1 from public.review_replies where review_id = $1`, [review])).rowCount).toBe(0);
+        // Fiche sans informations ni réponses : l'e-mail n'en parle pas.
+        expect((await pool.query(`select payload from public.email_outbox where dedupe_key = $1`, [`management_revoked:${claim}`])).rows[0].payload).toMatchObject({
+          info: "none",
+          removedReplies: 0,
+          keptReplies: 0,
+          rejectedPending: 0,
+        });
       });
 
       it("renoncement sans effacement : informations conservées, réponse en attente abandonnée", async () => {

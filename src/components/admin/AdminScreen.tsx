@@ -417,7 +417,7 @@ function ManagedPlaces({ managers, act }: { managers: Array<Json>; act: Act }) {
   return (
     <Card title="Fiches gérées">
       <p className="mb-3 text-xs text-ink-3">
-        Retirer la gestion rend la fiche de nouveau revendicable. L&apos;établissement ne peut plus modifier la fiche ni répondre aux avis ; ses réponses en attente sont refusées. Sans les options ci-dessous, ses informations et ses réponses publiées restent affichées. L&apos;ancien gestionnaire ne pourra toujours pas noter la fiche.
+        Retirer la gestion rend la fiche de nouveau revendicable. L&apos;établissement ne peut plus modifier la fiche ni répondre aux avis ; ses réponses en attente sont refusées. Sans les options ci-dessous, ses informations et ses réponses publiées restent affichées. L&apos;ancien gestionnaire ne pourra toujours pas noter la fiche. Il est prévenu par e-mail, avec le motif et ce qui a été fait.
       </p>
       {!managers.length ? (
         <p className="text-sm text-ink-3">Aucune fiche gérée par un établissement.</p>
@@ -480,7 +480,7 @@ function RevokeForm({ manager, onCancel, onConfirm }: { manager: Json; onCancel:
       }}
     >
       <label className="block text-xs font-bold" htmlFor={`${formId}-reason`}>
-        Motif (obligatoire, visible par l&apos;établissement)
+        Motif (obligatoire, visible par l&apos;établissement et envoyé par e-mail)
       </label>
       <input id={`${formId}-reason`} className="field mt-1" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. : établissement fermé, changement de propriétaire…" />
       <label className="flex min-h-9 items-center gap-2 text-xs">

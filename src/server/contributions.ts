@@ -5,6 +5,7 @@ import {
   buildCommunityPlace,
   ClaimSchema,
   clearEstablishmentData,
+  hasEstablishmentData,
   destinationForPoint,
   EstablishmentUpdateSchema,
   findLikelyDuplicates,
@@ -302,10 +303,35 @@ function checkReason(reason: string): string {
 /** Retrait par un administrateur, motivé et journalisé. */
 export async function revokeClaim(c: PoolClient, adminId: string, claimId: string, options: EndManagementOptions): Promise<void> {
   const reason = checkReason(options.reason);
-  const res = await c.query(`select place_id, user_id from public.place_claims where id = $1 and status = 'approved' for update`, [claimId]);
+  const res = await c.query(
+    `select pc.place_id, pc.user_id, pl.name, pl.practical, pl.restaurant
+       from public.place_claims pc join public.places pl on pl.id = pc.place_id where pc.id = $1 and pc.status = 'approved' for update of pc`,
+    [claimId],
+  );
   if (!res.rowCount) throw new ContributionError("Gestion introuvable ou déjà retirée.", 404);
   const placeId = String(res.rows[0].place_id);
-  const result = await endManagement(c, { id: claimId, placeId, userId: String(res.rows[0].user_id) }, { id: adminId, admin: true }, { ...options, reason });
+  const userId = String(res.rows[0].user_id);
+  const hadInfo = hasEstablishmentData({ practical: res.rows[0].practical, restaurant: res.rows[0].restaurant ?? undefined });
+  const result = await endManagement(c, { id: claimId, placeId, userId }, { id: adminId, admin: true }, { ...options, reason });
+  const kept = await c.query(
+    `select count(*)::int as n from public.review_replies rr join public.reviews r on r.id = rr.review_id where r.place_id = $1 and rr.user_id = $2 and rr.status = 'published'`,
+    [placeId, userId],
+  );
+  // L'établissement est prévenu par e-mail de ce qui a réellement été fait (envoyé après validation).
+  await enqueueEmail(c, {
+    userId,
+    kind: "management_revoked",
+    payload: {
+      placeId,
+      placeName: String(res.rows[0].name),
+      reason,
+      info: result.clearedFields.length ? "cleared" : hadInfo ? "kept" : "none",
+      removedReplies: result.removedPublished,
+      keptReplies: Number(kept.rows[0].n),
+      rejectedPending: result.rejectedPending,
+    },
+    dedupeKey: `management_revoked:${claimId}`,
+  });
   await audit(c, adminId, "claim.revoke", "place", placeId, { claimId, reason, removeReplies: options.removeReplies, clearInfo: options.clearInfo, ...result });
 }
 

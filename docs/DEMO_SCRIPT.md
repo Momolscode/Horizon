@@ -108,7 +108,7 @@ Prérequis : voir HANDOVER § 3. Parcours couverts par `npm run test:e2e:connect
 - partage révocable ;
 - mission récompensée une seule fois ;
 - Mode Duo : invitation, co-édition, conflit sans écrasement, visite pour deux confirmée ;
-- référencement : proposition d'un lieu, modération, revendication, informations de l'établissement, avis après visite et réponse, retrait de la gestion par un administrateur, refus motivé et avis retiré à la validation, chacun avec son e-mail reçu dans Mailpit, renoncement par l'établissement ;
+- référencement : proposition d'un lieu, modération, revendication, informations de l'établissement, avis après visite et réponse, retrait de la gestion par un administrateur, refus motivé, avis retiré à la validation (chacun avec son e-mail reçu dans Mailpit), renoncement par l'établissement ;
 - avis modéré, publié par un administrateur et journalisé.
 
 ### Mode Duo (captures réelles, mode connecté, mobile)
@@ -141,9 +141,9 @@ Captures produites par `REF_SHOTS=docs/screenshots npm run test:e2e:connected --
 
 E-mails reçus par Mailpit, le serveur SMTP de test de la pile locale (rien n'est envoyé à l'extérieur ; adresses de test fictives) :
 
-| « Avis retiré » | « Revendication refusée » |
-|---|---|
-| ![E-mail avis retiré](screenshots/ref-07-email-avis-retire.jpg) | ![E-mail revendication refusée](screenshots/ref-08-email-revendication-refusee.jpg) |
+| « Avis retiré » | « Revendication refusée » | « Gestion retirée » |
+|---|---|---|
+| ![E-mail avis retiré](screenshots/ref-07-email-avis-retire.jpg) | ![E-mail revendication refusée](screenshots/ref-08-email-revendication-refusee.jpg) | ![E-mail gestion retirée](screenshots/ref-09-email-gestion-retiree.jpg) |
 
 Les autres écrans du mode connecté n'ont pas de captures.
 

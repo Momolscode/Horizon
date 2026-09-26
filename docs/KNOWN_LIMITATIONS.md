@@ -137,8 +137,12 @@ Tout ce qui est simulé, non vérifié, non livré ou volontairement limité. À
 
 ## 10. E-mails de notification
 
-- **Portée :** deux e-mails existent : « avis retiré » (revendication validée alors que la personne avait noté le lieu) et « revendication refusée » (avec le motif). Aucun e-mail n'est envoyé pour les autres événements : revendication validée sans avis, retrait de la gestion, proposition de lieu ou réponse modérée, etc.
-- **Motif du refus :** il est rédigé par l'administrateur et envoyé tel quel (sur une ligne). Aucune relecture automatique : un motif maladroit part tel qu'écrit.
+- **Portée :** trois e-mails existent :
+  - « avis retiré » : revendication validée alors que la personne avait noté le lieu ;
+  - « revendication refusée », avec le motif ;
+  - « gestion retirée » par un administrateur, avec le motif et ce qui a été fait.
+- **Événements sans e-mail :** revendication validée sans avis, renoncement (décidé par l'établissement lui-même), proposition de lieu ou réponse modérée, etc.
+- **Motifs :** ils sont rédigés par l'administrateur et envoyés tels quels (sur une ligne). Aucune relecture automatique : un motif maladroit part tel qu'écrit.
 - **Vérifié seulement en local :** l'envoi SMTP est testé contre Mailpit, le serveur de test de la pile Supabase locale. Aucun fournisseur SMTP réel n'a été configuré ni essayé. La délivrabilité (SPF, DKIM, DMARC, réputation du domaine) n'est ni configurée ni vérifiée : des e-mails peuvent arriver en indésirables.
 - **Envoi différé :** l'envoi immédiat après la validation est une commodité (`after()`). Sans tâche planifiée `npm run mail:flush`, un e-mail en échec n'est relancé qu'à la validation suivante ou par le bouton de l'administration.
 - **Doublon possible :** garantie « au moins une fois » (D-019).

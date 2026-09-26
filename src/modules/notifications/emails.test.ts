@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_EMAIL_ATTEMPTS, renderClaimRejected, renderEmail, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
+import { MAX_EMAIL_ATTEMPTS, renderClaimRejected, renderEmail, renderManagementRevoked, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
 
 describe("e-mail « avis retiré »", () => {
   const payload = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique" };
@@ -61,6 +61,37 @@ describe("e-mail « revendication refusée »", () => {
     expect(renderEmail("claim_rejected", { placeId: "x", placeName: "Lieu" }, { siteUrl: null, supportEmail: null })).toBeNull();
     expect(renderEmail("claim_rejected", { ...payload, reason: "no" }, { siteUrl: null, supportEmail: null })).toBeNull();
     expect(renderEmail("claim_rejected", payload, { siteUrl: null, supportEmail: null })?.subject).toContain("n'a pas été validée");
+  });
+});
+
+describe("e-mail « gestion retirée »", () => {
+  const base = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique", reason: "Changement de propriétaire" };
+  const ctx = { siteUrl: "https://horizon.example", supportEmail: null };
+
+  it("donne le motif et décrit ce qui a réellement été fait", () => {
+    const mail = renderManagementRevoked({ ...base, info: "cleared", removedReplies: 0, keptReplies: 1, rejectedPending: 2 }, ctx);
+    expect(mail.subject).toBe("La gestion de la fiche « Atelier Céramique » vous a été retirée");
+    expect(mail.text).toContain("Motif : Changement de propriétaire");
+    expect(mail.text).toContain("ont été effacées de la fiche");
+    expect(mail.text).toContain("1 réponse déjà publiée reste visible");
+    expect(mail.text).toContain("2 réponses en attente de modération ne seront pas publiées");
+    expect(mail.text).toContain("vous ne pouvez pas noter ce lieu");
+    expect(mail.text).toContain("https://horizon.example/lieux/lyon-atelier-ceramique");
+  });
+
+  it("informations laissées, réponses retirées ; rien n'est affirmé sur ce qui n'existait pas", () => {
+    const kept = renderManagementRevoked({ ...base, info: "kept", removedReplies: 3, keptReplies: 0, rejectedPending: 0 }, ctx).text;
+    expect(kept).toContain("restent affichées, datées");
+    expect(kept).toContain("3 réponses publiées ont été retirées");
+    expect(kept).not.toContain("en attente de modération");
+    const none = renderManagementRevoked({ ...base, info: "none", removedReplies: 0, keptReplies: 0, rejectedPending: 0 }, ctx).text;
+    expect(none).not.toContain("informations pratiques fournies");
+    expect(none).not.toMatch(/réponses? (publiée|déjà)/);
+  });
+
+  it("un contenu incomplet n'est jamais envoyé", () => {
+    expect(renderEmail("management_revoked", { ...base, info: "cleared" }, ctx)).toBeNull();
+    expect(renderEmail("management_revoked", { ...base, info: "peut-être", removedReplies: 0, keptReplies: 0, rejectedPending: 0 }, ctx)).toBeNull();
   });
 });
 

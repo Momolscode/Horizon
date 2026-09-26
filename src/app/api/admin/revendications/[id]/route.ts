@@ -28,13 +28,11 @@ export const PATCH = adminRoute<{ id: string }>(
         return revokeClaim(c, admin.id, params.id, input);
       });
       if (input.decision === "revoke" && input.clearInfo) invalidateCatalogCache();
-      // Validation (avis retiré) ou refus : un e-mail peut être en file, envoyé après la réponse.
-      if (input.decision === "approve" || input.decision === "reject") {
-        after(async () => {
-          const report = await deliverPendingEmails(getPool()).catch((error: unknown) => ({ status: "error", message: error instanceof Error ? error.message : "erreur" }));
-          if (report.status !== "done") console.warn("e-mails : envoi différé", report.status);
-        });
-      }
+      // Chaque décision peut mettre un e-mail en file (avis retiré, refus, retrait) : envoi après la réponse.
+      after(async () => {
+        const report = await deliverPendingEmails(getPool()).catch((error: unknown) => ({ status: "error", message: error instanceof Error ? error.message : "erreur" }));
+        if (report.status !== "done") console.warn("e-mails : envoi différé", report.status);
+      });
       return NextResponse.json({ ok: true });
     } catch (error) {
       return contributionErrorResponse(error, "modération de revendication");

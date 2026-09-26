@@ -197,4 +197,8 @@ Validée par le porteur le 2026-09-25, lors d'une séance de conception.
 - **Écartés :** envoi dans la transaction (un SMTP lent bloquerait la validation), service d'e-mail propriétaire (dépendance et coût non validés), e-mails HTML (inutile pour un message de service).
 - **Tests :** rendu du message (unitaires) ; file, relances, masquage des identifiants, concurrence, purge et envoi SMTP réel vers Mailpit (base réelle) ; parcours complet jusqu'à la réception dans Mailpit (e2e connecté).
 - **Complément du 2026-09-26 — « revendication refusée » (migration `20260926000200_claim_rejected_email.sql`) :** le refus d'une revendication envoie au demandeur un e-mail avec le motif et la marche à suivre pour une nouvelle demande. Le motif, auparavant fixe (« Justificatif insuffisant »), est désormais saisi par l'administrateur (suggestions proposées, 3 à 300 caractères), car il est transmis au demandeur. Même file, mêmes garanties.
+- **Complément du 2026-09-26 — « gestion retirée » (migration `20260926000300_management_revoked_email.sql`) :**
+  - un retrait de la gestion par un administrateur envoie à l'établissement un e-mail avec le motif et ce qui a **réellement** été fait : informations effacées, laissées ou absentes ; réponses publiées retirées ou laissées ; réponses en attente abandonnées. Aucune phrase ne porte sur ce qui n'existait pas ;
+  - il indique aussi que l'établissement peut déposer une nouvelle demande ;
+  - le renoncement, décidé par l'établissement lui-même, n'envoie pas d'e-mail.
 

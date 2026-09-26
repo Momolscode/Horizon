@@ -167,7 +167,7 @@ test.describe.serial("Référencement — mode connecté", () => {
     await memberContext.close();
   });
 
-  test("un administrateur retire la gestion de la fiche, avec effacement des informations fournies", async ({ page, browser }) => {
+  test("un administrateur retire la gestion de la fiche, avec effacement des informations fournies ; l'établissement est prévenu par e-mail", async ({ page, browser }) => {
     const moderator = await adminPage(browser);
     await moderator.goto("/admin");
     await moderator.getByRole("tab", { name: "Revendications" }).click();
@@ -185,6 +185,12 @@ test.describe.serial("Référencement — mode connecté", () => {
     await expect(moderator.getByText(`Gestion retirée : ${placeName}.`)).toBeVisible();
     await expect(moderator.getByRole("region", { name: "Fiches gérées" }).getByText(placeName)).toHaveCount(0);
     await moderator.context().close();
+
+    // L'établissement reçoit un e-mail décrivant le retrait (Mailpit, pile locale).
+    const revoked = await mailpitMessage(pro, `La gestion de la fiche « ${placeName} » vous a été retirée`);
+    expect(revoked.Text).toContain("Motif : Changement de propriétaire");
+    expect(revoked.Text).toContain("ont été effacées de la fiche");
+    expect(revoked.Text).toContain("1 réponse déjà publiée reste visible");
 
     await signIn(page, pro);
     await page.goto("/contributions");
