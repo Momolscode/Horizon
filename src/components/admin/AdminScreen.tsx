@@ -310,8 +310,57 @@ function Claims({ version, act }: { version: number; act: Act }) {
   );
 }
 
+const CLAIM_REJECTION_REASONS = [
+  "Justificatif insuffisant",
+  "SIRET introuvable ou sans lien avec ce lieu",
+  "Adresse e-mail sans rapport avec l'établissement",
+  "Preuve impossible à vérifier",
+];
+
+function RejectClaimForm({ claim, onCancel, onConfirm }: { claim: Json; onCancel: () => void; onConfirm: (reason: string) => Promise<void> }) {
+  const [reason, setReason] = useState(CLAIM_REJECTION_REASONS[0]!);
+  const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
+  const id = `reject-${String(claim.id)}`;
+  const valid = reason.trim().length >= 3;
+  return (
+    <form
+      className="mt-2 space-y-2 rounded-2xl bg-warn-soft p-3"
+      aria-label={`Refuser la demande de ${String(claim.pseudonym)}`}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!valid || sending.current) return;
+        sending.current = true;
+        setBusy(true);
+        await onConfirm(reason.trim());
+        sending.current = false;
+        setBusy(false);
+      }}
+    >
+      <label className="block text-xs font-bold" htmlFor={`${id}-reason`}>
+        Motif du refus (affiché au demandeur et envoyé par e-mail)
+      </label>
+      <input id={`${id}-reason`} className="field mt-1" list={`${id}-choices`} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <datalist id={`${id}-choices`}>
+        {CLAIM_REJECTION_REASONS.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+      <div className="flex gap-2">
+        <button type="submit" className="btn btn-primary min-h-9 px-3 text-xs" disabled={!valid || busy}>
+          Confirmer le refus
+        </button>
+        <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={onCancel} disabled={busy}>
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function PendingClaims({ claims, act }: { claims: Array<Json>; act: Act }) {
   const data = { claims };
+  const [rejecting, setRejecting] = useState<string | null>(null);
   return (
     <Card title="Revendications de fiches">
       <p className="mb-3 text-xs text-ink-3">
@@ -342,10 +391,19 @@ function PendingClaims({ claims, act }: { claims: Array<Json>; act: Act }) {
                 <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "approve" }, "Revendication validée.")}>
                   Valider
                 </button>
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => void act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "reject", reason: "Justificatif insuffisant" }, "Revendication refusée.")}>
-                  Refuser
+                <button type="button" className="btn btn-ghost min-h-9 px-3 text-xs" onClick={() => setRejecting(String(c.id))}>
+                  Refuser…
                 </button>
               </div>
+              {rejecting === String(c.id) ? (
+                <RejectClaimForm
+                  claim={c}
+                  onCancel={() => setRejecting(null)}
+                  onConfirm={async (reason) => {
+                    if (await act(`/api/admin/revendications/${c.id}`, "PATCH", { decision: "reject", reason }, "Revendication refusée.")) setRejecting(null);
+                  }}
+                />
+              ) : null}
             </li>
           ))}
         </ul>

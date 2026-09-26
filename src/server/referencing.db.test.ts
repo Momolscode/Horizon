@@ -147,7 +147,13 @@ describe("revendication par un professionnel", () => {
     const other = await asServer((c) => approveProposal(c, admin, id));
     createdPlaces.push(other);
     const claim = await asServer((c) => submitClaim(c, intruder, { placeId: other, siret: SIRET, proofKind: "document", proofText: "Justificatif à venir" }));
+    await expect(asServer((c) => rejectClaim(c, admin, claim, " x "))).rejects.toMatchObject({ status: 400 });
     await asServer((c) => rejectClaim(c, admin, claim, "Justificatif absent"));
+    // Le demandeur est prévenu par e-mail, avec le motif ; un second refus est impossible (404), donc aucun doublon.
+    const outbox = (await pool.query(`select user_id, kind, payload from public.email_outbox where dedupe_key = $1`, [`claim_rejected:${claim}`])).rows;
+    expect(outbox).toEqual([{ user_id: intruder, kind: "claim_rejected", payload: { placeId: other, placeName: `Escalade Croix-Rousse ${stamp}`, reason: "Justificatif absent" } }]);
+    await expect(asServer((c) => rejectClaim(c, admin, claim, "Justificatif absent"))).rejects.toMatchObject({ status: 404 });
+    expect((await pool.query(`select count(*)::int as n from public.email_outbox where dedupe_key = $1`, [`claim_rejected:${claim}`])).rows[0].n).toBe(1);
     await expect(asServer((c) => updateEstablishmentInfo(c, intruder, other, { website: null, price: "unknown", openingHours: null, bookingMode: "unknown" }))).rejects.toMatchObject({ status: 403 });
   });
 
@@ -280,8 +286,8 @@ describe("revendication par un professionnel", () => {
       createdPlaces.push(place);
       const claim = await asServer((c) => submitClaim(c, pro, { placeId: place, siret: SIRET, proofKind: "email_domain", proofText: "contact@paddle.example" }));
       await asServer((c) => approveClaim(c, admin, claim));
-      // Aucun avis retiré : aucun e-mail.
-      expect((await pool.query(`select 1 from public.email_outbox where dedupe_key = $1`, [`review_withdrawn:${claim}`])).rowCount).toBe(0);
+      // Aucun avis retiré : aucun e-mail (ni « avis retiré », ni « refus »).
+      expect((await pool.query(`select 1 from public.email_outbox where dedupe_key in ($1, $2)`, [`review_withdrawn:${claim}`, `claim_rejected:${claim}`])).rowCount).toBe(0);
       await asServer((c) => updateEstablishmentInfo(c, pro, place, { website: "https://paddle.example", price: "lte30", openingHours: null, bookingMode: "required" }));
       await expect(asServer((c) => relinquishClaim(c, intruder, place, { clearInfo: true }))).rejects.toMatchObject({ status: 403 });
 

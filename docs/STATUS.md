@@ -1,6 +1,6 @@
 # État du projet
 
-_Mis à jour le 2026-09-26 : notification par e-mail de l'auteur d'un avis retiré (D-019)._
+_Mis à jour le 2026-09-26 : e-mails « avis retiré » et « revendication refusée » (D-019)._
 
 Environnement de toutes les vérifications ci-dessous :
 
@@ -18,14 +18,14 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 |---|---|---|---|
 | Types | RÉUSSIE | `npm run typecheck` | 0 erreur |
 | Lint (règles React Compiler incluses) | RÉUSSIE | `npm run lint` | 0 erreur, 0 avertissement |
-| Tests unitaires | RÉUSSIE | `npm test` | 15 fichiers, 119 tests |
+| Tests unitaires | RÉUSSIE | `npm test` | 15 fichiers, 122 tests |
 | Intégration sur PostgreSQL/PostGIS réel | RÉUSSIE | `npm run supabase:reset && npm run test:db` | 9 fichiers, 84 tests : RLS, attribution concurrente et idempotente, missions, durcissement, P1, constats de la revue finale, Mode Duo, référencement (retrait, renoncement et avis déposés avant la revendication compris), file d'e-mails (relances, identifiants masqués, concurrence, purge, envoi SMTP réel vers Mailpit) ; relancés deux fois de suite après réinitialisation, sans résidu (40 lieux restants) |
 | Build de production démo | RÉUSSIE | `npm run build:demo` | build Next sans erreur |
 | Parcours e2e démo, mobile 390×844 et ordinateur 1440×900 | RÉUSSIE | `npm run build:demo && npm run test:e2e` | 13 réussis, 1 ignoré volontairement (test propre au mobile, ignoré en projet ordinateur) |
-| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 17 tests sur Supabase local + `next dev`, dont le Duo, le référencement, le retrait de la gestion, le renoncement, et l'avis retiré avec e-mail reçu dans Mailpit |
-| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 9 migrations + seed de 40 lieux |
+| Parcours e2e connectés | RÉUSSIE | `npm run test:e2e:connected` | 17 tests sur Supabase local + `next dev`, dont le Duo, le référencement, le retrait de la gestion, le renoncement, le refus motivé et l'avis retiré, chacun avec son e-mail reçu dans Mailpit |
+| Migrations sur base vide | RÉUSSIE | `npm run supabase:reset` | 10 migrations + seed de 40 lieux |
 | Captures réelles, mobile et ordinateur | RÉUSSIE | `node scripts/screenshots.mjs http://localhost:3100 docs/screenshots` | 46 captures du mode démo dans `docs/screenshots/`, examinées une à une |
-| Captures réelles du référencement (connecté, mobile) | RÉUSSIE | `REF_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-referencing.spec.ts` | 6 captures `ref-*.jpg`, sous `next dev` (`ref-05` et `ref-06` : retrait et renoncement) ; `ref-07` : e-mail « avis retiré » affiché par Mailpit |
+| Captures réelles du référencement (connecté, mobile) | RÉUSSIE | `REF_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-referencing.spec.ts` | 6 captures `ref-*.jpg`, sous `next dev` (`ref-05` et `ref-06` : retrait et renoncement) ; `ref-07` et `ref-08` : e-mails « avis retiré » et « revendication refusée » affichés par Mailpit |
 | Captures réelles du Mode Duo (connecté, mobile) | RÉUSSIE | `DUO_SHOTS=docs/screenshots npm run test:e2e:connected -- e2e/connected-duo.spec.ts` | 5 captures `duo-*.jpg`, prises sous `next dev` (le bouton des outils Next est visible en bas à gauche) |
 | Revue indépendante (2 agents en lecture seule : sécurité/intégrité, interface/liens) | RÉUSSIE | voir ci-dessous | 11 + 15 constats, traités |
 | Revue indépendante du retrait de gestion (1 agent en lecture seule) | RÉUSSIE | lecture du diff | concurrence retrait/réponse (verrou partagé, test qui échoue sans lui), motif compté en caractères, libellés d'effacement précisés, états de chargement, double envoi, fiche gérée non publiée, tests renforcés ; limites restantes dans KNOWN_LIMITATIONS § 9 |
@@ -47,7 +47,7 @@ Statuts possibles : RÉUSSIE, ÉCHOUÉE, NON EXÉCUTÉE.
 - Amis : invitation par pseudonyme et acceptation.
 - Avis modéré : invisible avant publication, puis publié par un administrateur et journalisé.
 - Référencement : proposition d'un lieu, modération et publication « proposé par un membre » ; revendication (SIRET + preuve) inactive avant validation ; informations « fournies par l'établissement » ; avis refusé sans visite déclarée ; réponse de l'établissement invisible avant modération.
-- Retrait de la gestion : un administrateur retire la gestion avec un motif et l'effacement des informations ; l'établissement voit le motif, perd l'accès, et la fiche n'affiche plus rien « fourni par l'établissement » mais redevient revendicable. Renoncement par l'établissement lui-même. Une demande venant d'une personne qui a déjà noté le lieu est signalée à l'administrateur ; à la validation, son avis est retiré et l'e-mail « avis retiré » est reçu par Mailpit, avec le lien vers la fiche ; l'administration affiche l'envoi.
+- Retrait de la gestion : un administrateur retire la gestion avec un motif et l'effacement des informations ; l'établissement voit le motif, perd l'accès, et la fiche n'affiche plus rien « fourni par l'établissement » mais redevient revendicable. Renoncement par l'établissement lui-même. Une demande venant d'une personne qui a déjà noté le lieu est signalée à l'administrateur ; la demande concurrente est refusée avec un motif saisi, que l'établissement reçoit par e-mail ; à la validation, l'avis du membre est retiré et l'e-mail « avis retiré » est reçu par Mailpit, avec le lien vers la fiche ; l'administration affiche l'envoi.
 - Mode Duo : invitation d'un ami, acceptation, co-édition, conflit d'enregistrement sans écrasement, « nous y étions », puis confirmation par l'autre qui crédite sa visite.
 
 ## Revue finale indépendante : constats et suites

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_EMAIL_ATTEMPTS, renderEmail, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
+import { MAX_EMAIL_ATTEMPTS, renderClaimRejected, renderEmail, renderReviewWithdrawn, retryDelayMinutes } from "./emails";
 
 describe("e-mail « avis retiré »", () => {
   const payload = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique" };
@@ -38,3 +38,29 @@ describe("e-mail « avis retiré »", () => {
     expect(MAX_EMAIL_ATTEMPTS).toBe(5);
   });
 });
+
+describe("e-mail « revendication refusée »", () => {
+  const payload = { placeId: "lyon-atelier-ceramique", placeName: "Atelier Céramique", reason: "SIRET introuvable ou sans lien avec ce lieu" };
+
+  it("donne le motif et la marche à suivre pour une nouvelle demande", () => {
+    const mail = renderClaimRejected(payload, { siteUrl: "https://horizon.example", supportEmail: null });
+    expect(mail.subject).toBe("Votre demande de gestion de « Atelier Céramique » n'a pas été validée");
+    expect(mail.text).toContain("Motif indiqué par l'équipe : SIRET introuvable ou sans lien avec ce lieu");
+    expect(mail.text).toContain("« C'est votre établissement ? »");
+    expect(mail.text).toContain("https://horizon.example/lieux/lyon-atelier-ceramique");
+    expect(mail.text).not.toContain("Une question");
+  });
+
+  it("motif sur une seule ligne ; sans adresse du site, aucun lien", () => {
+    const mail = renderClaimRejected({ ...payload, reason: "Preuve\nimpossible à vérifier" }, { siteUrl: null, supportEmail: null });
+    expect(mail.text).toContain("Motif indiqué par l'équipe : Preuve impossible à vérifier");
+    expect(mail.text).not.toMatch(/https?:\/\//);
+  });
+
+  it("un motif absent ou trop court n'est jamais envoyé", () => {
+    expect(renderEmail("claim_rejected", { placeId: "x", placeName: "Lieu" }, { siteUrl: null, supportEmail: null })).toBeNull();
+    expect(renderEmail("claim_rejected", { ...payload, reason: "no" }, { siteUrl: null, supportEmail: null })).toBeNull();
+    expect(renderEmail("claim_rejected", payload, { siteUrl: null, supportEmail: null })?.subject).toContain("n'a pas été validée");
+  });
+});
+

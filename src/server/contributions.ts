@@ -219,13 +219,19 @@ export async function approveClaim(c: PoolClient, adminId: string, claimId: stri
 }
 
 export async function rejectClaim(c: PoolClient, adminId: string, claimId: string, reason: string): Promise<void> {
+  const text = checkReason(reason);
   const res = await c.query(
-    `update public.place_claims set status = 'rejected', rejection_reason = $2, reviewed_by = $3, reviewed_at = now()
-      where id = $1 and status = 'pending' returning place_id`,
-    [claimId, reason, adminId],
+    `update public.place_claims pc set status = 'rejected', rejection_reason = $2, reviewed_by = $3, reviewed_at = now()
+       from public.places pl
+      where pc.id = $1 and pc.status = 'pending' and pl.id = pc.place_id
+      returning pc.place_id, pc.user_id, pl.name`,
+    [claimId, text, adminId],
   );
   if (!res.rowCount) throw new ContributionError("Demande introuvable ou déjà traitée.", 404);
-  await audit(c, adminId, "claim.reject", "place", String(res.rows[0].place_id), { claimId, reason });
+  const { place_id: placeId, user_id: userId, name } = res.rows[0];
+  // Le demandeur est prévenu par e-mail, avec le motif (envoyé après validation de la transaction).
+  await enqueueEmail(c, { userId: String(userId), kind: "claim_rejected", payload: { placeId: String(placeId), placeName: String(name), reason: text }, dedupeKey: `claim_rejected:${claimId}` });
+  await audit(c, adminId, "claim.reject", "place", String(placeId), { claimId, reason: text });
 }
 
 // ———————————————————————————————— Retrait de la gestion ————————————————————————————————

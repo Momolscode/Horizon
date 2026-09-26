@@ -135,7 +135,7 @@ Circuit de modération :
 2. L'administrateur l'examine dans l'onglet « Propositions » de `/admin`. S'il le publie, le lieu est inséré dans `places` avec la source `contribution-membres`, non vérifié, cellule H3 calculée ; le catalogue est revalidé dans la transaction.
 3. Un établissement revendique la fiche avec son SIRET et une preuve (`POST /api/revendications`). L'administrateur valide dans l'onglet « Revendications ». La validation retire les avis que le demandeur avait déposés sur ce lieu (motif « conflit d'intérêts », journalisé dans `claim.approve`).
 4. L'établissement corrige ses informations depuis `/contributions` (`PATCH /api/pro/lieux/[id]`) et répond aux avis (`POST /api/pro/reponses`). Les réponses sont modérées dans l'onglet « Réponses ».
-5. Si le demandeur avait noté le lieu, un e-mail « avis retiré » est mis en file dans la même transaction que la validation, puis envoyé (D-019). L'onglet « Vue d'ensemble » de `/admin` affiche l'état des envois : SMTP configuré ou non, en attente, abandonnés, dernière erreur.
+5. Un refus exige un motif, saisi dans l'onglet « Revendications » : il est affiché au demandeur et lui est envoyé par e-mail (« revendication refusée »). Si, à la validation, le demandeur avait noté le lieu, un e-mail « avis retiré » est mis en file dans la même transaction que la validation, puis envoyé (D-019). L'onglet « Vue d'ensemble » de `/admin` affiche l'état des envois : SMTP configuré ou non, en attente, abandonnés, dernière erreur.
 6. Fin de gestion :
    - **Retrait par l'administrateur :** carte « Fiches gérées » de l'onglet « Revendications », via `PATCH /api/admin/revendications/[id]` avec `decision: "revoke"`, un motif et les options `clearInfo` et `removeReplies`. Le retrait est journalisé (`claim.revoke`).
    - **Renoncement par l'établissement :** depuis `/contributions`, via `POST /api/pro/lieux/[id]/renonciation`.
@@ -163,7 +163,7 @@ Le cache du catalogue est revalidé par empreinte à chaque lecture (D-018).
 | Avis et signalements d'avis | `reviews`, `review_reports` | modération | cascade |
 | Propositions de lieux (contenu, position, auteur) | `place_proposals` | référencement modéré | l'auteur devient vide à la suppression du compte ; le lieu publié reste (contribution anonymisée) |
 | Revendications (SIRET, preuve : e-mail professionnel ou description du justificatif) | `place_claims` | vérification de l'établissement | cascade à la suppression du compte ; **données professionnelles à traiter avec soin** |
-| E-mails de notification (type, nom du lieu, dates d'envoi ; **aucune adresse**) | `email_outbox` | prévenir l'auteur d'un avis retiré | cascade à la suppression du compte ; envoyés purgés après 30 jours, abandons après 90 (`npm run mail:flush`) |
+| E-mails de notification (type, nom du lieu, motif de refus, dates d'envoi ; **aucune adresse**) | `email_outbox` | prévenir l'auteur d'un avis retiré ou d'une revendication refusée | cascade à la suppression du compte ; envoyés purgés après 30 jours, abandons après 90 (`npm run mail:flush`) |
 | Réponses des établissements aux avis | `review_replies` | droit de réponse | cascade |
 | Signalements d'erreur sur un lieu | `error_reports` | qualité du catalogue | conservés sans auteur (`on delete set null`) |
 | Journal d'administration | `admin_audit_log` | traçabilité | conservé (sans clé étrangère vers l'administrateur) |

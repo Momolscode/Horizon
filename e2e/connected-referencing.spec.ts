@@ -26,6 +26,22 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${SHOTS}/${name}.jpg`, type: "jpeg", quality: 78 });
 }
 
+/** Attend un e-mail reçu par Mailpit (destinataire et objet exacts) et renvoie son contenu. */
+async function mailpitMessage(to: string, subject: string): Promise<{ Text: string }> {
+  let messageId: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`);
+        messageId = ((await res.json()) as { messages: Array<{ ID: string; Subject: string }> }).messages.find((m) => m.Subject === subject)?.ID;
+        return Boolean(messageId);
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  return (await (await fetch(`${MAILPIT}/api/v1/message/${messageId}`)).json()) as { Text: string };
+}
+
 async function adminPage(browser: Browser): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -190,7 +206,7 @@ test.describe.serial("Référencement — mode connecté", () => {
     await expect(dialog.getByText("Demande envoyée.")).toBeVisible();
   });
 
-  test("un membre qui a noté le lieu obtient la gestion : son avis est retiré et il est prévenu par e-mail", async ({ page, browser }) => {
+  test("demande concurrente refusée avec un motif envoyé par e-mail ; le membre qui a noté le lieu obtient la gestion, son avis est retiré et il est prévenu par e-mail", async ({ page, browser }) => {
     // Le membre a laissé un avis publié sur ce lieu (test 3), puis revendique la fiche.
     await signIn(page, member);
     await page.goto(`/lieux/${placeId}`);
@@ -210,24 +226,21 @@ test.describe.serial("Référencement — mode connecté", () => {
     const flagged = pending.filter({ hasText: "Cette personne a déposé un avis sur ce lieu" });
     await expect(flagged).toHaveCount(1);
     await expect(flagged).toContainText("il sera retiré si vous validez la demande");
-    await pending.filter({ hasNotText: "Cette personne a déposé un avis" }).getByRole("button", { name: "Refuser" }).click();
+    // Refus de la demande de l'établissement, avec un motif saisi : il reçoit un e-mail.
+    await pending.filter({ hasNotText: "Cette personne a déposé un avis" }).getByRole("button", { name: "Refuser…" }).click();
+    const rejectForm = moderator.getByRole("form", { name: /Refuser la demande de/ });
+    await rejectForm.getByLabel(/Motif du refus/).fill("SIRET sans lien avec ce lieu (contrôle e2e)");
+    await rejectForm.getByRole("button", { name: "Confirmer le refus" }).click();
     await expect(moderator.getByText("Revendication refusée.")).toBeVisible();
     await expect(pending).toHaveCount(1);
+    const rejection = await mailpitMessage(pro, `Votre demande de gestion de « ${placeName} » n'a pas été validée`);
+    expect(rejection.Text).toContain("Motif indiqué par l'équipe : SIRET sans lien avec ce lieu (contrôle e2e)");
+    expect(rejection.Text).toContain(`http://localhost:3200/lieux/${placeId}`);
     await flagged.getByRole("button", { name: "Valider" }).click();
     await expect(moderator.getByText("Revendication validée.")).toBeVisible();
 
     // E-mail reçu par le serveur SMTP de test local (Mailpit) : rien ne sort de la machine.
-    const subject = `Votre avis sur « ${placeName} » a été retiré`;
-    let messageId: string | undefined;
-    await expect
-      .poll(async () => {
-        const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${member}"`)}`);
-        const found = ((await res.json()) as { messages: Array<{ ID: string; Subject: string }> }).messages.find((m) => m.Subject === subject);
-        messageId = found?.ID;
-        return Boolean(found);
-      }, { timeout: 20_000 })
-      .toBe(true);
-    const mail = (await (await fetch(`${MAILPIT}/api/v1/message/${messageId}`)).json()) as { Text: string };
+    const mail = await mailpitMessage(member, `Votre avis sur « ${placeName} » a été retiré`);
     expect(mail.Text).toContain(`http://localhost:3200/lieux/${placeId}`);
     expect(mail.Text).toContain("il n'est plus affiché, mais il n'est pas supprimé");
 

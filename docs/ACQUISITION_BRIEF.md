@@ -11,11 +11,11 @@ HORIZON transforme des idées de sorties éparpillées en excursions concrètes,
 | Actif | État |
 |---|---|
 | Application web Next.js 16 / React 19 / TypeScript strict, PWA installable | fonctionnelle en démonstration ; mode connecté fonctionnel sur une pile Supabase **locale** |
-| Code source | environ 18 400 lignes TypeScript/TSX dans `src/` (191 fichiers, tests compris) et environ 1 040 lignes de migrations SQL (9 migrations), relevé du 2026-09-26 |
+| Code source | environ 18 500 lignes TypeScript/TSX dans `src/` (191 fichiers, tests compris) et environ 1 040 lignes de migrations SQL (10 migrations), relevé du 2026-09-26 |
 | Tests automatisés | unitaires (Vitest), intégration sur PostgreSQL réel, parcours Playwright démo et connectés ; résultats dans `docs/STATUS.md` |
 | Schéma de données avec sécurité au niveau des lignes (RLS) | 30 tables, attribution serveur transactionnelle et idempotente |
 | Administration | lieux, signalements, avis, propositions de lieux, revendications, réponses des établissements, missions, barèmes versionnés, corrections d'XP, journal d'audit, tableau de mesure |
-| Référencement élargi | propositions de lieux par les membres (modérées), revendication de fiche par les établissements (SIRET + preuve, validation manuelle), retrait ou renoncement de la gestion, avis après visite déclarée, réponses gratuites, e-mail à l'auteur d'un avis retiré (file d'envoi, SMTP non fourni) ; **aucune offre payante implémentée** |
+| Référencement élargi | propositions de lieux par les membres (modérées), revendication de fiche par les établissements (SIRET + preuve, validation manuelle), retrait ou renoncement de la gestion, avis après visite déclarée, réponses gratuites, e-mails « avis retiré » et « revendication refusée » (file d'envoi, SMTP non fourni) ; **aucune offre payante implémentée** |
 | Identité visuelle et illustrations génératives originales | voir `docs/ASSET_REGISTER.md` |
 | Documentation de reprise | `docs/HANDOVER.md`, `docs/DECISIONS.md`, `docs/PRODUCT_SPEC.md`, `docs/KNOWN_LIMITATIONS.md` |
 

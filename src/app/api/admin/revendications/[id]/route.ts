@@ -9,7 +9,8 @@ import { contributionErrorResponse } from "@/server/route-helpers";
 
 const Decision = z.discriminatedUnion("decision", [
   z.object({ decision: z.literal("approve") }),
-  z.object({ decision: z.literal("reject"), reason: z.string().min(3).max(300).optional() }),
+  // Motif obligatoire : il est affiché au demandeur et envoyé par e-mail.
+  z.object({ decision: z.literal("reject"), reason: z.string().trim().min(3).max(300) }),
   // Retrait de la gestion d'une fiche validée : motif obligatoire, options explicites.
   z.object({ decision: z.literal("revoke"), reason: z.string().trim().min(3).max(300), removeReplies: z.boolean(), clearInfo: z.boolean() }),
 ]);
@@ -23,12 +24,12 @@ export const PATCH = adminRoute<{ id: string }>(
     try {
       await withTransaction((c) => {
         if (input.decision === "approve") return approveClaim(c, admin.id, params.id);
-        if (input.decision === "reject") return rejectClaim(c, admin.id, params.id, input.reason ?? "Justificatif insuffisant");
+        if (input.decision === "reject") return rejectClaim(c, admin.id, params.id, input.reason);
         return revokeClaim(c, admin.id, params.id, input);
       });
       if (input.decision === "revoke" && input.clearInfo) invalidateCatalogCache();
-      // Une validation peut avoir mis un e-mail en file (avis retiré) : envoi après la réponse.
-      if (input.decision === "approve") {
+      // Validation (avis retiré) ou refus : un e-mail peut être en file, envoyé après la réponse.
+      if (input.decision === "approve" || input.decision === "reject") {
         after(async () => {
           const report = await deliverPendingEmails(getPool()).catch((error: unknown) => ({ status: "error", message: error instanceof Error ? error.message : "erreur" }));
           if (report.status !== "done") console.warn("e-mails : envoi différé", report.status);
